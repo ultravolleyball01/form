@@ -66,7 +66,7 @@ O projeto inclui `netlify.toml`, uma Netlify Function para toda a API e uma migr
 4. O build e a pasta publicada são definidos pelo `netlify.toml`.
 5. Depois do deploy, valide `https://SEU-DOMINIO/api/health`.
 
-A Netlify fornece `URL` e `NETLIFY_DB_URL` automaticamente. Não copie a URL do banco para o frontend e não crie variáveis com prefixo `VITE_` para segredos.
+A Netlify fornece `URL` automaticamente. Como a API Express usa uma Function em modo de compatibilidade Lambda, copie a connection string exibida em **Data & Storage > Database** para a variável secreta `DATABASE_URL`, com escopo de Functions. Não copie a URL do banco para o frontend e não crie variáveis com prefixo `VITE_` para segredos.
 
 As rotas `/api/*` são encaminhadas à Function Express. As demais rotas usam fallback para `index.html`, permitindo acesso direto às páginas do React.
 

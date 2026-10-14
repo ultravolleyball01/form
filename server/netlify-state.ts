@@ -1,8 +1,18 @@
 import { getDatabase } from '@netlify/database';
 import { db, type DatabaseSchema } from './db';
 
+let databaseConnection: ReturnType<typeof getDatabase> | undefined;
+
+function getManagedDatabase(): ReturnType<typeof getDatabase> {
+  if (!databaseConnection) {
+    const connectionString = process.env.DATABASE_URL?.trim();
+    databaseConnection = getDatabase(connectionString ? { connectionString } : undefined);
+  }
+  return databaseConnection;
+}
+
 export async function withNetlifyState<T>(mutates: boolean, operation: () => Promise<T>): Promise<T> {
-  const database = getDatabase();
+  const database = getManagedDatabase();
   const client = await database.pool.connect();
 
   try {
