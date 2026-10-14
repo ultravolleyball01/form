@@ -1,0 +1,6 @@
+{
+  "name": "Ultra Volleyball - Inscrição de Camisetas",
+  "description": "Sistema de inscrição e pagamento de camisetas da Ultra Volleyball com checkout InfinitePay e painel administrativo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
