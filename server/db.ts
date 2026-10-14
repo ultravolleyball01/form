@@ -27,6 +27,17 @@ export interface DatabaseSchema {
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'ultra_db.json');
 
+function usesManagedDatabase(): boolean {
+  return Boolean(
+    process.env.NETLIFY ||
+      process.env.NETLIFY_DB_URL ||
+      process.env.CONTEXT ||
+      process.env.DEPLOY_ID ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.LAMBDA_TASK_ROOT
+  );
+}
+
 // Initial seed data
 const INITIAL_CLASSES: Omit<ClassItem, 'id' | 'created_at' | 'updated_at'>[] = [
   { display_label: 'UNIDADE BATALHA - INFANTIL SEGUNDA 09HS', unit: 'BATALHA', category: 'INFANTIL', gender: 'MISTO', level: 'INICIANTE', weekday: 'SEGUNDA', start_time: '09:00', active: true, sort_order: 1 },
@@ -132,19 +143,18 @@ export function generateUUID(): string {
 
 class Database {
   private data: DatabaseSchema;
+  private readonly managedDatabase = usesManagedDatabase();
 
   constructor() {
     this.data = this.load();
   }
 
   private load(): DatabaseSchema {
-    const usesRemoteDatabase = Boolean(process.env.NETLIFY || process.env.NETLIFY_DB_URL);
-
-    if (!usesRemoteDatabase && !fs.existsSync(DATA_DIR)) {
+    if (!this.managedDatabase && !fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
 
-    if (!usesRemoteDatabase && fs.existsSync(DB_FILE)) {
+    if (!this.managedDatabase && fs.existsSync(DB_FILE)) {
       try {
         const content = fs.readFileSync(DB_FILE, 'utf-8');
         return JSON.parse(content);
@@ -206,7 +216,7 @@ class Database {
       ],
     };
 
-    if (!usesRemoteDatabase) {
+    if (!this.managedDatabase) {
       this.saveData(seeded);
     }
     return seeded;
@@ -219,7 +229,7 @@ class Database {
   }
 
   public persist(): void {
-    if (process.env.NETLIFY || process.env.NETLIFY_DB_URL) return;
+    if (this.managedDatabase) return;
     this.saveData(this.data);
   }
 
