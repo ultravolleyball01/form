@@ -12,6 +12,7 @@ const ALLOWED_CHECKOUT_HOSTS = new Set([
 export interface CreatePaymentLinkParams {
   orderNsu: string;
   amountCents: number;
+  customerName: string;
   webhookToken: string;
   registrationPublicCode: string;
   returnUrl: string;
@@ -247,6 +248,9 @@ export class InfinitePayProvider {
       order_nsu: params.orderNsu,
       redirect_url: params.returnUrl,
       webhook_url: params.webhookUrl,
+      customer: {
+        name: params.customerName,
+      },
       items: [
         {
           quantity: 1,

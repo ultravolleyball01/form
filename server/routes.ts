@@ -364,6 +364,7 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
     const linkResult = await infinitePayProvider.createPaymentLink({
       orderNsu: order_nsu,
       amountCents: registration.amount,
+      customerName: registration.participant_name,
       webhookToken: rawToken,
       registrationPublicCode: registration.public_code,
       returnUrl,
