@@ -7,12 +7,31 @@ import type {
   ShirtSize,
 } from '../types';
 
+async function readJsonResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
+  const body = await res.text();
+  let result: any;
+
+  try {
+    result = body ? JSON.parse(body) : undefined;
+  } catch {
+    throw new Error(`${fallbackMessage} (HTTP ${res.status}: resposta inválida do servidor)`);
+  }
+
+  if (!res.ok) {
+    throw new Error(result?.error || result?.message || `${fallbackMessage} (HTTP ${res.status})`);
+  }
+  if (result === undefined) {
+    throw new Error(`${fallbackMessage} (HTTP ${res.status}: resposta vazia do servidor)`);
+  }
+
+  return result as T;
+}
+
 export const api = {
   // Public
   async getPublicConfig(): Promise<PublicFormConfig> {
     const res = await fetch('/api/public-config');
-    if (!res.ok) throw new Error('Falha ao carregar configurações');
-    return res.json();
+    return readJsonResponse<PublicFormConfig>(res, 'Falha ao carregar configurações');
   },
 
   async createRegistration(data: {
@@ -26,11 +45,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    const result = await res.json();
-    if (!res.ok) {
-      throw new Error(result.error || 'Erro ao criar inscrição');
-    }
-    return result;
+    return readJsonResponse<any>(res, 'Erro ao criar inscrição');
   },
 
   async createOrder(registration_id: string, attempt_id: string) {
@@ -39,11 +54,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ registration_id, attempt_id }),
     });
-    const result = await res.json();
-    if (!res.ok) {
-      throw new Error(result.error || 'Erro ao gerar ordem de pagamento');
-    }
-    return result;
+    return readJsonResponse<any>(res, 'Erro ao gerar ordem de pagamento');
   },
 
   async getOrderStatus(order_nsu?: string, public_code?: string) {

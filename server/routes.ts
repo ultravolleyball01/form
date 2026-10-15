@@ -284,7 +284,6 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
       orderNsu: order_nsu,
       attemptId: attempt_id,
       amountCents: registration.amount,
-      customerName: registration.participant_name,
       webhookToken: rawToken,
       registrationPublicCode: registration.public_code,
       returnUrl,
@@ -319,7 +318,13 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
     if (registrationId) {
       db.updateRegistrationStatus(registrationId, 'payment_failed');
     }
-    res.status(500).json({ error: 'Erro ao gerar ordem de pagamento' });
+    const providerRejected =
+      err instanceof Error && err.message.startsWith('InfinitePay recusou a criação do checkout:');
+    res.status(providerRejected ? 502 : 500).json({
+      error: providerRejected
+        ? 'A InfinitePay recusou o checkout. Verifique a InfiniteTag e se o Checkout Integrado está habilitado na conta.'
+        : 'Erro ao gerar ordem de pagamento',
+    });
   }
 });
 

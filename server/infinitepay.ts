@@ -6,7 +6,6 @@ export interface CreatePaymentLinkParams {
   orderNsu: string;
   attemptId: string;
   amountCents: number;
-  customerName: string;
   webhookToken: string;
   registrationPublicCode: string;
   returnUrl: string;
@@ -73,13 +72,15 @@ export class InfinitePayProvider {
       const endpoint = process.env.INFINITEPAY_CHECKOUT_API_URL || 'https://api.checkout.infinitepay.io/links';
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           handle,
           order_nsu: params.orderNsu,
           redirect_url: params.returnUrl,
           webhook_url: params.webhookUrl,
-          customer: { name: params.customerName },
           items: [
             {
               quantity: 1,
@@ -90,8 +91,19 @@ export class InfinitePayProvider {
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const rawBody = await response.text();
+      let data: any = {};
+      try {
+        data = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        data = {};
+      }
       if (!response.ok || !data.url) {
+        console.error('InfinitePay checkout request rejected', {
+          status: response.status,
+          contentType: response.headers.get('content-type'),
+          response: rawBody.slice(0, 500),
+        });
         const message = data.message || data.error || `HTTP ${response.status}`;
         throw new Error(`InfinitePay recusou a criação do checkout: ${message}`);
       }
@@ -126,7 +138,7 @@ export class InfinitePayProvider {
         return { success: true, paid: false, paidAmount: 0, rawStatus: 'awaiting_provider_reference' };
       }
 
-      const endpoint = process.env.INFINITEPAY_PAYMENT_CHECK_API_URL || 'https://api.infinitepay.io/invoices/public/checkout/payment_check';
+      const endpoint = process.env.INFINITEPAY_PAYMENT_CHECK_API_URL || 'https://api.checkout.infinitepay.io/payment_check';
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
