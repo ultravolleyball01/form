@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
+  Trash2,
 } from 'lucide-react';
 import type { ClassItem, ShirtSize } from '../../types';
 
@@ -112,6 +113,24 @@ export const AdminRegistrationsPage: React.FC = () => {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Erro ao exportar inscrições:', err);
+    }
+  };
+
+  const handleDeleteCancelled = async (registration: any) => {
+    const confirmed = window.confirm(
+      `Excluir definitivamente a inscrição cancelada de ${registration.participant_name}? Esta ação não pode ser desfeita.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.deleteCancelledRegistration(registration.id);
+      if (items.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+      } else {
+        await loadRegistrations();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Erro ao excluir a inscrição');
     }
   };
 
@@ -384,13 +403,26 @@ export const AdminRegistrationsPage: React.FC = () => {
                       {new Date(r.created_at).toLocaleString('pt-BR')}
                     </td>
                     <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <a
-                        href={`/admin/inscricoes/${r.id}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white font-bold transition-all"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Ver
-                      </a>
+                      <div className="inline-flex items-center gap-1.5">
+                        <a
+                          href={`/admin/inscricoes/${r.id}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white font-bold transition-all"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Ver
+                        </a>
+                        {r.status === 'cancelled' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCancelled(r)}
+                            title="Excluir inscrição cancelada"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-600 hover:text-white font-bold transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Excluir
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

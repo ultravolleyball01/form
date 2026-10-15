@@ -931,6 +931,41 @@ apiRouter.get('/admin/registrations/:id', requireAdminAuth, (req, res) => {
 });
 
 /**
+ * Permanently deletes a cancelled registration and its dependent data.
+ */
+apiRouter.delete('/admin/registrations/:id', requireAdminAuth, (req, res) => {
+  try {
+    const registration = db.getRegistrationById(req.params.id);
+    if (!registration) {
+      res.status(404).json({ error: 'Inscrição não encontrada' });
+      return;
+    }
+    if (registration.status !== 'cancelled') {
+      res.status(409).json({ error: 'Somente inscrições canceladas podem ser excluídas.' });
+      return;
+    }
+
+    const hasPaidPayment = db.getAllData().payments.some(
+      (payment) => payment.registration_id === registration.id && payment.status === 'paid'
+    );
+    if (hasPaidPayment) {
+      res.status(409).json({ error: 'A inscrição possui um pagamento confirmado e não pode ser excluída.' });
+      return;
+    }
+
+    if (!db.deleteCancelledRegistration(registration.id)) {
+      res.status(409).json({ error: 'Não foi possível excluir a inscrição.' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Inscrição cancelada excluída definitivamente.' });
+  } catch (err: any) {
+    console.error('Error deleting cancelled registration:', err);
+    res.status(500).json({ error: 'Erro ao excluir a inscrição cancelada' });
+  }
+});
+
+/**
  * GET /api/admin/camisas
  * Report grouped by size, category, class, and unit
  */

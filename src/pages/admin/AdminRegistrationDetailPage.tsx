@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Ban,
   Hash,
+  Trash2,
 } from 'lucide-react';
 
 export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> = ({
@@ -303,6 +304,31 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
                 >
                   <Ban className="w-4 h-4" />
                   <span>Cancelar Pendência</span>
+                </button>
+              </div>
+            )}
+            {isCancelled && (
+              <div className="pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const deleteAction = window.confirm(
+                      'Excluir definitivamente esta inscrição cancelada? As respostas e tentativas de pagamento relacionadas também serão removidas. Esta ação não pode ser desfeita.'
+                    );
+                    if (deleteAction) {
+                      try {
+                        await api.deleteCancelledRegistration(data.id);
+                        alert('Inscrição excluída com sucesso!');
+                        window.location.href = '/admin/inscricoes';
+                      } catch (err: any) {
+                        alert(err.message || 'Erro ao excluir a inscrição');
+                      }
+                    }
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Excluir Inscrição Cancelada</span>
                 </button>
               </div>
             )}

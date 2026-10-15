@@ -323,4 +323,12 @@ export const api = {
     });
     return readJsonResponse<any>(res, 'Erro ao cancelar a pendência de pagamento');
   },
+
+  async deleteCancelledRegistration(id: string) {
+    const res = await fetch(`/api/admin/registrations/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    return readJsonResponse<any>(res, 'Erro ao excluir a inscrição cancelada');
+  },
 };

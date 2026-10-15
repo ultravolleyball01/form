@@ -488,6 +488,19 @@ class Database {
     }
   }
 
+  public deleteCancelledRegistration(id: string): boolean {
+    const registration = this.data.registrations.find((item) => item.id === id);
+    if (!registration || registration.status !== 'cancelled') return false;
+
+    this.data.registration_answers = this.data.registration_answers.filter(
+      (answer) => answer.registration_id !== id
+    );
+    this.data.payments = this.data.payments.filter((payment) => payment.registration_id !== id);
+    this.data.registrations = this.data.registrations.filter((item) => item.id !== id);
+    this.persist();
+    return true;
+  }
+
   // Payments
   public findPaymentByAttemptId(attemptId: string): Payment | undefined {
     return this.data.payments.find((p) => p.attempt_id === attemptId);
