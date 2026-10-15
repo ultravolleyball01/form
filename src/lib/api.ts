@@ -107,11 +107,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
-    const result = await res.json();
-    if (!res.ok) {
-      throw new Error(result.error || 'Credenciais inválidas');
-    }
-    return result;
+    return readJsonResponse<any>(res, 'Não foi possível acessar o painel administrativo');
   },
 
   async adminLogout() {

@@ -18,6 +18,25 @@ app.use('/api', apiRouter);
 const expressHandler = serverless(app);
 
 export const handler: Handler = async (event, context) => {
-  const mutates = !['GET', 'HEAD', 'OPTIONS'].includes(event.httpMethod);
-  return (await withNetlifyState(mutates, () => expressHandler(event, context))) as any;
+  try {
+    const mutates = !['GET', 'HEAD', 'OPTIONS'].includes(event.httpMethod);
+    return (await withNetlifyState(mutates, () => expressHandler(event, context))) as any;
+  } catch (error) {
+    console.error('Unhandled Netlify API error', {
+      method: event.httpMethod,
+      path: event.path,
+      error: error instanceof Error ? error.name : 'unknown',
+    });
+
+    return {
+      statusCode: 500,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'no-store',
+      },
+      body: JSON.stringify({
+        error: 'O serviço administrativo está temporariamente indisponível. Tente novamente em instantes.',
+      }),
+    };
+  }
 };
