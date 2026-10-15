@@ -1,6 +1,6 @@
 import type { Handler } from '@netlify/functions';
 import cookieParser from 'cookie-parser';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import serverless from 'serverless-http';
 
@@ -29,6 +29,29 @@ function getRuntime(): Promise<NetlifyApiRuntime> {
       app.use(express.urlencoded({ extended: true, limit: '64kb' }));
       app.use(cookieParser());
       app.use('/api', apiRouter);
+      app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
+        const statusCandidate = typeof error === 'object' && error !== null && 'status' in error
+          ? Number((error as { status?: unknown }).status)
+          : 500;
+        const status = Number.isInteger(statusCandidate) && statusCandidate >= 400 && statusCandidate < 600
+          ? statusCandidate
+          : 500;
+
+        console.error('Unhandled Express API error', {
+          method: req.method,
+          path: req.path,
+          error: error instanceof Error ? error.name : 'unknown',
+          message: error instanceof Error ? error.message : undefined,
+        });
+
+        if (!res.headersSent) {
+          res.status(status).json({
+            error: status === 500
+              ? 'Erro interno ao processar a requisição.'
+              : 'A requisição enviada é inválida.',
+          });
+        }
+      });
 
       return {
         expressHandler: serverless(app),

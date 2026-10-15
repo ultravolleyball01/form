@@ -236,14 +236,14 @@ export const PublicFormPage: React.FC = () => {
           {/* Volleyball Sport Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-amber-300 text-xs font-extrabold uppercase tracking-widest mb-4 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            ULTRA VOLLEYBALL • TEMPORADA OFICIAL
+            ULTRA VOLLEYBALL • TORNEIO INTERNO
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase leading-none text-white drop-shadow-sm">
             Incrição campeonato interno
           </h1>
           <p className="text-blue-100 text-sm sm:text-base mt-2.5 max-w-md font-medium">
-            Camisa personalizada. Preencha seus dados abaixo para confirmar seu inscrição e pagamento seguro.
+            Para se inscrever preencha seus dados abaixo e realize o pagamento da camisa.
           </p>
 
           <div className="mt-4 flex items-center gap-4 text-xs text-blue-200">
