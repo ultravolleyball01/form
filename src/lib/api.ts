@@ -315,4 +315,12 @@ export const api = {
     if (!res.ok) throw new Error(result.error || 'Erro ao confirmar pagamento manualmente');
     return result;
   },
+
+  async cancelRegistrationPayment(id: string) {
+    const res = await fetch(`/api/admin/registrations/${id}/cancel-payment`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    return readJsonResponse<any>(res, 'Erro ao cancelar a pendência de pagamento');
+  },
 };

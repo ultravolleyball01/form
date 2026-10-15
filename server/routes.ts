@@ -286,6 +286,13 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
         res.status(409).json({ error: 'Identificador de tentativa já utilizado.' });
         return;
       }
+      if (existingPayment.status === 'cancelled') {
+        res.status(409).json({
+          error: 'Esta pendência de pagamento foi cancelada pelo administrador.',
+          code: 'checkout_attempt_cancelled',
+        });
+        return;
+      }
       if (existingPayment.checkout_url) {
         res.json({
           order_nsu: existingPayment.order_nsu,
@@ -314,6 +321,15 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
 
     if (registration.status === 'confirmed') {
       res.status(400).json({ error: 'Esta inscrição já foi paga e confirmada.' });
+      return;
+    }
+    if (registration.status === 'cancelled' || registration.status === 'expired') {
+      res.status(409).json({
+        error: registration.status === 'cancelled'
+          ? 'Esta inscrição foi cancelada pelo administrador.'
+          : 'Esta inscrição expirou.',
+        code: registration.status === 'cancelled' ? 'registration_cancelled' : 'registration_expired',
+      });
       return;
     }
     registrationId = registration.id;
@@ -1462,6 +1478,55 @@ apiRouter.post('/admin/registrations/:id/confirm-payment', requireAdminAuth, (re
   } catch (err: any) {
     console.error('Error confirming payment manually:', err);
     res.status(500).json({ error: 'Erro ao confirmar pagamento manualmente' });
+  }
+});
+
+/**
+ * Cancels an unpaid gateway pendency without deleting its audit trail.
+ * A later verified provider payment is still reconciled by the webhook.
+ */
+apiRouter.post('/admin/registrations/:id/cancel-payment', requireAdminAuth, (req, res) => {
+  try {
+    const registration = db.getRegistrationById(req.params.id);
+    if (!registration) {
+      res.status(404).json({ error: 'Inscrição não encontrada' });
+      return;
+    }
+
+    const payment = db.getPaymentByRegistrationId(registration.id);
+    if (registration.status === 'confirmed' || payment?.status === 'paid') {
+      res.status(409).json({ error: 'Um pagamento confirmado não pode ser cancelado por esta ação.' });
+      return;
+    }
+
+    if (registration.status === 'cancelled') {
+      res.json({
+        success: true,
+        reused: true,
+        message: 'A pendência desta inscrição já estava cancelada.',
+        registration,
+        payment,
+      });
+      return;
+    }
+
+    const cancelledPayment = payment
+      ? db.updatePayment(payment.id, {
+          status: 'cancelled',
+          error: 'Pendência cancelada manualmente pelo administrador.',
+        })
+      : undefined;
+    db.updateRegistrationStatus(registration.id, 'cancelled');
+
+    res.json({
+      success: true,
+      message: 'Pendência de pagamento cancelada com sucesso.',
+      registration: db.getRegistrationById(registration.id),
+      payment: cancelledPayment,
+    });
+  } catch (err: any) {
+    console.error('Error cancelling payment manually:', err);
+    res.status(500).json({ error: 'Erro ao cancelar a pendência de pagamento' });
   }
 });
 

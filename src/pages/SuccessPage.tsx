@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Copy,
   Check,
-  Printer,
   ExternalLink,
   ShieldCheck,
   Sparkles,
@@ -63,10 +62,6 @@ export const SuccessPage: React.FC = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   return (
@@ -211,13 +206,6 @@ export const SuccessPage: React.FC = () => {
               </a>
             )}
 
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Printer className="w-4 h-4" /> Imprimir Comprovante
-            </button>
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-100 text-center">

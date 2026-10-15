@@ -139,6 +139,12 @@ export const AdminRegistrationsPage: React.FC = () => {
             Falhou
           </span>
         );
+      case 'cancelled':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-200 text-slate-700">
+            Cancelada
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-100 text-slate-700">
@@ -201,6 +207,7 @@ export const AdminRegistrationsPage: React.FC = () => {
             <option value="confirmed">Confirmadas</option>
             <option value="pending_payment">Aguardando Pagamento</option>
             <option value="payment_failed">Falhas</option>
+            <option value="cancelled">Canceladas</option>
           </select>
 
           {/* Filter toggle button */}

@@ -12,6 +12,7 @@ import {
   User,
   ClipboardList,
   AlertCircle,
+  Ban,
   Hash,
 } from 'lucide-react';
 
@@ -63,6 +64,8 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
   }
 
   const isConfirmed = data.status === 'confirmed';
+  const isCancelled = data.status === 'cancelled';
+  const canManagePayment = !isConfirmed && !isCancelled && data.payment?.status !== 'paid';
 
   return (
     <div className="space-y-6">
@@ -80,6 +83,10 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
           {isConfirmed ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800">
               <CheckCircle2 className="w-3.5 h-3.5" /> Confirmada
+            </span>
+          ) : isCancelled ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-slate-200 text-slate-700">
+              <Ban className="w-3.5 h-3.5" /> Cancelada
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800">
@@ -252,8 +259,8 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
               <p className="text-xs text-slate-400">Nenhum registro de checkout iniciado para esta inscrição.</p>
             )}
 
-            {!isConfirmed && (
-              <div className="pt-3 border-t border-slate-100">
+            {canManagePayment && (
+              <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={async () => {
@@ -275,6 +282,27 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Confirmar Pagamento Manualmente (InfinitePay)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const cancelAction = window.confirm(
+                      'Deseja cancelar esta pendência de pagamento? O histórico será preservado. Esta ação não estorna pagamentos e não invalida um link que já tenha sido aberto na InfinitePay.'
+                    );
+                    if (cancelAction) {
+                      try {
+                        await api.cancelRegistrationPayment(data.id);
+                        alert('Pendência de pagamento cancelada com sucesso!');
+                        loadDetails();
+                      } catch (err: any) {
+                        alert(err.message || 'Erro ao cancelar a pendência');
+                      }
+                    }
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Ban className="w-4 h-4" />
+                  <span>Cancelar Pendência</span>
                 </button>
               </div>
             )}
