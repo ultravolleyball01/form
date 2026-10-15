@@ -6,5 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+.local-bin/
 data/*.json
 !data/*.example.json

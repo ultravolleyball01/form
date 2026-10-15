@@ -365,9 +365,19 @@ export function confirmPayment(params: {
       });
       return { success: false, conflict: true, error: 'Transação diverge da confirmação anterior' };
     }
+
+    // A consulta de status pode confirmar o pagamento antes do webhook. Como a
+    // resposta documentada de payment_check não inclui obrigatoriamente o
+    // comprovante, permita que o webhook idempotente complete esse dado depois.
+    // Nunca substitua um comprovante já persistido.
+    const receiptUrl = safeHttpsUrl(params.receiptUrl);
+    const reconciledPayment = !payment.receipt_url && receiptUrl
+      ? db.updatePayment(payment.id, { receipt_url: receiptUrl }) || payment
+      : payment;
+
     return {
       success: true,
-      payment,
+      payment: reconciledPayment,
       registration: db.getRegistrationById(payment.registration_id),
     };
   }
