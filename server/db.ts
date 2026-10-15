@@ -88,7 +88,7 @@ const INITIAL_FORM_FIELDS: Omit<FormField, 'id' | 'created_at' | 'updated_at'>[]
   {
     key: 'full_name',
     label: 'Nome completo',
-    description: 'Informe o nome completo do aluno ou responsável',
+    description: 'Informe o nome completo do(a) ALUNO(A)',
     field_type: 'text',
     placeholder: 'Ex: Lucas Silva Oliveira',
     required: true,

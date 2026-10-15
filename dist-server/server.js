@@ -451,6 +451,17 @@ var Database = class {
       this.persist();
     }
   }
+  deleteCancelledRegistration(id) {
+    const registration = this.data.registrations.find((item) => item.id === id);
+    if (!registration || registration.status !== "cancelled") return false;
+    this.data.registration_answers = this.data.registration_answers.filter(
+      (answer) => answer.registration_id !== id
+    );
+    this.data.payments = this.data.payments.filter((payment) => payment.registration_id !== id);
+    this.data.registrations = this.data.registrations.filter((item) => item.id !== id);
+    this.persist();
+    return true;
+  }
   // Payments
   findPaymentByAttemptId(attemptId) {
     return this.data.payments.find((p) => p.attempt_id === attemptId);
@@ -692,6 +703,9 @@ var InfinitePayProvider = class {
       order_nsu: params.orderNsu,
       redirect_url: params.returnUrl,
       webhook_url: params.webhookUrl,
+      customer: {
+        name: params.customerName
+      },
       items: [
         {
           quantity: 1,
@@ -1153,6 +1167,13 @@ apiRouter.post("/create-order", paymentLimiter, async (req, res) => {
         res.status(409).json({ error: "Identificador de tentativa j\xE1 utilizado." });
         return;
       }
+      if (existingPayment.status === "cancelled") {
+        res.status(409).json({
+          error: "Esta pend\xEAncia de pagamento foi cancelada pelo administrador.",
+          code: "checkout_attempt_cancelled"
+        });
+        return;
+      }
       if (existingPayment.checkout_url) {
         res.json({
           order_nsu: existingPayment.order_nsu,
@@ -1176,6 +1197,13 @@ apiRouter.post("/create-order", paymentLimiter, async (req, res) => {
     }
     if (registration.status === "confirmed") {
       res.status(400).json({ error: "Esta inscri\xE7\xE3o j\xE1 foi paga e confirmada." });
+      return;
+    }
+    if (registration.status === "cancelled" || registration.status === "expired") {
+      res.status(409).json({
+        error: registration.status === "cancelled" ? "Esta inscri\xE7\xE3o foi cancelada pelo administrador." : "Esta inscri\xE7\xE3o expirou.",
+        code: registration.status === "cancelled" ? "registration_cancelled" : "registration_expired"
+      });
       return;
     }
     registrationId = registration.id;
@@ -1216,6 +1244,7 @@ apiRouter.post("/create-order", paymentLimiter, async (req, res) => {
     const linkResult = await infinitePayProvider.createPaymentLink({
       orderNsu: order_nsu,
       amountCents: registration.amount,
+      customerName: registration.participant_name,
       webhookToken: rawToken,
       registrationPublicCode: registration.public_code,
       returnUrl,
@@ -1643,6 +1672,34 @@ apiRouter.get("/admin/registrations/:id", requireAdminAuth, (req, res) => {
   } catch (err) {
     console.error("Error in /api/admin/registrations/:id:", err);
     res.status(500).json({ error: "Erro ao buscar detalhes da inscri\xE7\xE3o" });
+  }
+});
+apiRouter.delete("/admin/registrations/:id", requireAdminAuth, (req, res) => {
+  try {
+    const registration = db.getRegistrationById(req.params.id);
+    if (!registration) {
+      res.status(404).json({ error: "Inscri\xE7\xE3o n\xE3o encontrada" });
+      return;
+    }
+    if (registration.status !== "cancelled") {
+      res.status(409).json({ error: "Somente inscri\xE7\xF5es canceladas podem ser exclu\xEDdas." });
+      return;
+    }
+    const hasPaidPayment = db.getAllData().payments.some(
+      (payment) => payment.registration_id === registration.id && payment.status === "paid"
+    );
+    if (hasPaidPayment) {
+      res.status(409).json({ error: "A inscri\xE7\xE3o possui um pagamento confirmado e n\xE3o pode ser exclu\xEDda." });
+      return;
+    }
+    if (!db.deleteCancelledRegistration(registration.id)) {
+      res.status(409).json({ error: "N\xE3o foi poss\xEDvel excluir a inscri\xE7\xE3o." });
+      return;
+    }
+    res.json({ success: true, message: "Inscri\xE7\xE3o cancelada exclu\xEDda definitivamente." });
+  } catch (err) {
+    console.error("Error deleting cancelled registration:", err);
+    res.status(500).json({ error: "Erro ao excluir a inscri\xE7\xE3o cancelada" });
   }
 });
 apiRouter.get("/admin/camisas", requireAdminAuth, (req, res) => {
@@ -2092,6 +2149,44 @@ apiRouter.post("/admin/registrations/:id/confirm-payment", requireAdminAuth, (re
   } catch (err) {
     console.error("Error confirming payment manually:", err);
     res.status(500).json({ error: "Erro ao confirmar pagamento manualmente" });
+  }
+});
+apiRouter.post("/admin/registrations/:id/cancel-payment", requireAdminAuth, (req, res) => {
+  try {
+    const registration = db.getRegistrationById(req.params.id);
+    if (!registration) {
+      res.status(404).json({ error: "Inscri\xE7\xE3o n\xE3o encontrada" });
+      return;
+    }
+    const payment = db.getPaymentByRegistrationId(registration.id);
+    if (registration.status === "confirmed" || payment?.status === "paid") {
+      res.status(409).json({ error: "Um pagamento confirmado n\xE3o pode ser cancelado por esta a\xE7\xE3o." });
+      return;
+    }
+    if (registration.status === "cancelled") {
+      res.json({
+        success: true,
+        reused: true,
+        message: "A pend\xEAncia desta inscri\xE7\xE3o j\xE1 estava cancelada.",
+        registration,
+        payment
+      });
+      return;
+    }
+    const cancelledPayment = payment ? db.updatePayment(payment.id, {
+      status: "cancelled",
+      error: "Pend\xEAncia cancelada manualmente pelo administrador."
+    }) : void 0;
+    db.updateRegistrationStatus(registration.id, "cancelled");
+    res.json({
+      success: true,
+      message: "Pend\xEAncia de pagamento cancelada com sucesso.",
+      registration: db.getRegistrationById(registration.id),
+      payment: cancelledPayment
+    });
+  } catch (err) {
+    console.error("Error cancelling payment manually:", err);
+    res.status(500).json({ error: "Erro ao cancelar a pend\xEAncia de pagamento" });
   }
 });
 apiRouter.put("/admin/settings/price", requireAdminAuth, (req, res) => {

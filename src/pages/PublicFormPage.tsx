@@ -236,24 +236,21 @@ export const PublicFormPage: React.FC = () => {
           {/* Volleyball Sport Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-amber-300 text-xs font-extrabold uppercase tracking-widest mb-4 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            ULTRA VOLLEYBALL • TORNEIO INTERNO
+            ULTRA VOLLEYBALL
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase leading-none text-white drop-shadow-sm">
             Incrição campeonato interno
           </h1>
           <p className="text-blue-100 text-sm sm:text-base mt-2.5 max-w-md font-medium">
-            Para se inscrever preencha seus dados abaixo e realize o pagamento da camisa.
+            Para se inscrever preencha seus dados abaixo e realize o pagamento da camiseta.
           </p>
 
           <div className="mt-4 flex items-center gap-4 text-xs text-blue-200">
             <span className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-amber-400" /> Tecido Dry Esportivo Premium
             </span>
-            <span className="flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-400" /> Edição Exclusiva
-            </span>
-          </div>
+           </div>
         </div>
       </header>
 
@@ -339,7 +336,7 @@ export const PublicFormPage: React.FC = () => {
 
                 <div className="flex items-center justify-between py-2 border-b border-slate-200 text-sm">
                   <div>
-                    <p className="font-bold text-slate-900">Camiseta Oficial Ultra Volleyball</p>
+                    <p className="font-bold text-slate-900">Camiseta Campeonato Interno Ultra Volleyball</p>
                     <p className="text-xs text-slate-500">
                       {selectedSize ? `Tamanho: ${selectedSize.code} (${selectedSize.category === 'adult' ? 'Adulto' : 'Infantil'})` : 'Tamanho a definir'}
                       {selectedClass ? ` • ${selectedClass.unit}` : ''}
