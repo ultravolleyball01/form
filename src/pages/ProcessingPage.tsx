@@ -22,57 +22,60 @@ export const ProcessingPage: React.FC = () => {
     const invoiceSlug = params.get('slug') || params.get('invoice_slug') || '';
 
     let isMounted = true;
-    let pollInterval: any = null;
+    const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+    const redirectToSuccess = () => {
+      if (!isMounted) return;
+      setStatusText('Pagamento confirmado com sucesso! Redirecionando...');
+      setTimeout(() => {
+        if (isMounted) window.location.href = `/inscricao/sucesso?order_nsu=${nsu}`;
+      }, 800);
+    };
 
-    const performCheck = async () => {
-      try {
-        setAttempts((prev) => prev + 1);
-
-        // Server-side check via InfinitePay provider (Rule 46 & 49)
-        const checkRes = await api.checkPayment(nsu, transactionNsu, invoiceSlug);
-
-        if (checkRes.paid || checkRes.status === 'confirmed') {
-          if (isMounted) {
-            setStatusText('Pagamento confirmado com sucesso! Redirecionando...');
-            clearInterval(pollInterval);
-            setTimeout(() => {
-              window.location.href = `/inscricao/sucesso?order_nsu=${nsu}`;
-            }, 1000);
+    const verifyWithLimitedPolling = async () => {
+      const delays = [0, 1_500, 3_000];
+      for (let index = 0; index < delays.length && isMounted; index += 1) {
+        if (delays[index]) await wait(delays[index]);
+        if (!isMounted) return;
+        setAttempts(index + 1);
+        try {
+          const statusRes = await api.getOrderStatus(nsu);
+          if (statusRes.paid || statusRes.status === 'confirmed') {
+            redirectToSuccess();
+            return;
           }
-          return;
-        }
-
-        // Also query safe order-status
-        const statusRes = await api.getOrderStatus(nsu);
-        if (statusRes.paid || statusRes.status === 'confirmed') {
-          if (isMounted) {
-            setStatusText('Pagamento confirmado com sucesso! Redirecionando...');
-            clearInterval(pollInterval);
-            setTimeout(() => {
-              window.location.href = `/inscricao/sucesso?order_nsu=${nsu}`;
-            }, 1000);
+          if (statusRes.status === 'payment_failed') {
+            setError('Não foi possível iniciar ou confirmar esse pagamento. Volte e tente novamente.');
+            return;
           }
-          return;
+        } catch (err) {
+          console.warn('Order status check failed', err);
         }
+      }
 
-        if (statusRes.status === 'payment_failed') {
-          setError('O pagamento não foi autorizado pela instituição financeira. Tente novamente.');
-          clearInterval(pollInterval);
+      // Give the webhook the fast path before starting the slower provider
+      // request. This reduces contention with the single-row Netlify state
+      // lock. The redirect itself never proves that a payment succeeded.
+      if (transactionNsu && invoiceSlug) {
+        try {
+          const checkRes = await api.checkPayment(nsu, transactionNsu, invoiceSlug);
+          if (checkRes.paid || checkRes.status === 'confirmed') {
+            redirectToSuccess();
+            return;
+          }
+        } catch (err) {
+          console.warn('InfinitePay confirmation is temporarily unavailable', err);
         }
-      } catch (err: any) {
-        console.warn('Payment check retry...', err);
+      }
+
+      if (isMounted) {
+        setStatusText('A confirmação ainda não chegou. Aguarde alguns instantes e use "Verificar agora".');
       }
     };
 
-    // First immediate check
-    performCheck();
-
-    // Poll every 2.5 seconds
-    pollInterval = setInterval(performCheck, 2500);
+    void verifyWithLimitedPolling();
 
     return () => {
       isMounted = false;
-      if (pollInterval) clearInterval(pollInterval);
     };
   }, []);
 
@@ -84,12 +87,19 @@ export const ProcessingPage: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       const transactionNsu = params.get('transaction_nsu') || params.get('nsu') || '';
       const invoiceSlug = params.get('slug') || params.get('invoice_slug') || '';
-      const checkRes = await api.checkPayment(orderNsu, transactionNsu, invoiceSlug);
-      if (checkRes.paid || checkRes.status === 'confirmed') {
-        window.location.href = `/inscricao/sucesso?order_nsu=${orderNsu}`;
-      } else {
-        setStatusText('Aguardando confirmação da operadora. Se você concluiu o pagamento na InfinitePay, a confirmação acontecerá em instantes.');
+      if (transactionNsu && invoiceSlug) {
+        const checkRes = await api.checkPayment(orderNsu, transactionNsu, invoiceSlug);
+        if (checkRes.paid || checkRes.status === 'confirmed') {
+          window.location.href = `/inscricao/sucesso?order_nsu=${orderNsu}`;
+          return;
+        }
       }
+      const statusRes = await api.getOrderStatus(orderNsu);
+      if (statusRes.paid || statusRes.status === 'confirmed') {
+        window.location.href = `/inscricao/sucesso?order_nsu=${orderNsu}`;
+        return;
+      }
+      setStatusText('Aguardando confirmação da operadora. Se você concluiu o pagamento na InfinitePay, a confirmação acontecerá em instantes.');
     } catch (err: any) {
       setError('Erro ao verificar pagamento. Aguarde a confirmação automática.');
     }

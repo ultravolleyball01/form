@@ -16,7 +16,7 @@ export type PaymentStatus =
 export interface SystemSettings {
   id: string;
   key: string;
-  value: string; // e.g. "6000" for shirt_price in cents
+  value: string; // e.g. "7000" for shirt_price in cents
   updated_at: string;
 }
 
@@ -79,6 +79,7 @@ export interface FormField {
 
 export interface Registration {
   id: string;
+  submission_attempt_id?: string;
   public_code: string;
   participant_name: string;
   class_id: string;
@@ -89,7 +90,7 @@ export interface Registration {
   shirt_length_cm_snapshot: number;
   shirt_category_snapshot: 'adult' | 'child';
   shirt_quantity: 1;
-  amount: number; // in centavos, e.g. 6000
+  amount: number; // in centavos, e.g. 7000
   status: RegistrationStatus;
   created_at: string;
   updated_at: string;
@@ -115,7 +116,7 @@ export interface Payment {
   transaction_nsu?: string;
   invoice_slug?: string;
   status: PaymentStatus;
-  amount: number; // in centavos, e.g. 6000
+  amount: number; // in centavos, e.g. 7000
   paid_amount?: number;
   installments?: number;
   capture_method?: string;

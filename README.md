@@ -41,12 +41,15 @@ O frontend é gerado em `dist/` e o servidor compilado em `dist-server/`.
 - `ADMIN_INITIAL_PASSWORD`, senha forte usada na primeira criação do banco
 - `INFINITEPAY_HANDLE`, sem o caractere `$`
 - `INFINITEPAY_MODE=production`
+- `INFINITEPAY_API_URL=https://api.checkout.infinitepay.io` (opcional; esse já é o padrão)
 
 O servidor recusa inicialização em produção quando uma configuração obrigatória está ausente ou inválida.
 
 ## Pagamentos
 
 O navegador nunca confirma um pagamento. A confirmação acontece somente pelo webhook exclusivo do pedido ou pela consulta server-to-server ao endpoint de `payment_check` da InfinitePay.
+
+Em produção, `INFINITEPAY_HANDLE` é sempre lida do ambiente da hospedagem; um valor antigo salvo no painel administrativo não a substitui. Não configure endpoints completos separados: remova as variáveis antigas `INFINITEPAY_CHECKOUT_API_URL` e `INFINITEPAY_PAYMENT_CHECK_API_URL` da Netlify.
 
 O simulador interno responde somente quando `INFINITEPAY_MODE=sandbox` e nunca fica disponível em produção.
 
@@ -62,6 +65,7 @@ O projeto inclui `netlify.toml`, uma Netlify Function para toda a API e uma migr
    - `ADMIN_INITIAL_PASSWORD` com uma senha forte;
    - `INFINITEPAY_HANDLE` sem `$`;
    - `INFINITEPAY_MODE=production`.
+   - opcionalmente, `INFINITEPAY_API_URL=https://api.checkout.infinitepay.io`.
 
 4. O build e a pasta publicada são definidos pelo `netlify.toml`.
 5. Depois do deploy, valide `https://SEU-DOMINIO/api/health`.

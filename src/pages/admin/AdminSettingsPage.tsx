@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 
 export const AdminSettingsPage: React.FC = () => {
-  const [currentPriceCents, setCurrentPriceCents] = useState(6000);
-  const [priceInput, setPriceInput] = useState('60,00');
+  const [currentPriceCents, setCurrentPriceCents] = useState(7000);
+  const [priceInput, setPriceInput] = useState('70,00');
   const [loadingPrice, setLoadingPrice] = useState(true);
   const [savingPrice, setSavingPrice] = useState(false);
   const [priceSuccess, setPriceSuccess] = useState('');
@@ -32,7 +32,7 @@ export const AdminSettingsPage: React.FC = () => {
   const [savingInfinitePay, setSavingInfinitePay] = useState(false);
   const [infinitePaySuccess, setInfinitePaySuccess] = useState('');
   const [infinitePayError, setInfinitePayError] = useState('');
-  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [infinitePayManagedByEnvironment, setInfinitePayManagedByEnvironment] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -50,6 +50,7 @@ export const AdminSettingsPage: React.FC = () => {
       if (res.infinitepay_mode) {
         setInfinitePayMode(res.infinitepay_mode);
       }
+      setInfinitePayManagedByEnvironment(res.infinitepay_managed_by_environment === true);
     } catch (err) {
       console.error('Error loading settings:', err);
     } finally {
@@ -185,7 +186,7 @@ export const AdminSettingsPage: React.FC = () => {
                   type="text"
                   value={priceInput}
                   onChange={(e) => setPriceInput(e.target.value)}
-                  placeholder="60,00"
+                  placeholder="70,00"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
@@ -328,6 +329,12 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
         )}
 
+        {infinitePayManagedByEnvironment && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-xs">
+            Em produção, a InfiniteTag e o modo são controlados pelas variáveis da Netlify. Altere <strong>INFINITEPAY_HANDLE</strong> no painel da hospedagem e publique novamente.
+          </div>
+        )}
+
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -360,6 +367,7 @@ export const AdminSettingsPage: React.FC = () => {
                   type="text"
                   value={infinitePayHandle}
                   onChange={(e) => setInfinitePayHandle(e.target.value.replace('$', '').trim())}
+                  disabled={infinitePayManagedByEnvironment}
                   placeholder="sua-infinite-tag"
                   className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-600"
                   required
@@ -379,6 +387,7 @@ export const AdminSettingsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setInfinitePayMode('production')}
+                  disabled={infinitePayManagedByEnvironment}
                   className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                     infinitePayMode === 'production'
                       ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
@@ -390,6 +399,7 @@ export const AdminSettingsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setInfinitePayMode('sandbox')}
+                  disabled={infinitePayManagedByEnvironment}
                   className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                     infinitePayMode === 'sandbox'
                       ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
@@ -408,27 +418,11 @@ export const AdminSettingsPage: React.FC = () => {
           {/* Webhook notification URL */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
             <span className="text-[11px] font-bold text-slate-500 uppercase block">
-              URL do Webhook para cadastrar na InfinitePay:
+              Webhook do checkout integrado
             </span>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhook/infinitepay`}
-                className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-slate-200 rounded-lg text-slate-700"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/api/webhook/infinitepay`);
-                  setCopiedWebhook(true);
-                  setTimeout(() => setCopiedWebhook(false), 2000);
-                }}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-bold cursor-pointer hover:bg-slate-900 transition-colors"
-              >
-                {copiedWebhook ? 'Copiado!' : 'Copiar URL'}
-              </button>
-            </div>
+            <p className="text-xs text-slate-600">
+              O sistema gera automaticamente uma URL autenticada exclusiva para cada pedido e a envia na criação do checkout. Não cadastre uma URL fixa manualmente.
+            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
@@ -443,7 +437,7 @@ export const AdminSettingsPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={savingInfinitePay}
+              disabled={savingInfinitePay || infinitePayManagedByEnvironment}
               className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow transition-all cursor-pointer"
             >
               <Save className="w-4 h-4" />

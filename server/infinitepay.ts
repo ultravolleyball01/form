@@ -2,9 +2,15 @@ import crypto from 'crypto';
 import { db } from './db';
 import type { Payment, Registration } from '../src/types';
 
+const DEFAULT_API_URL = 'https://api.checkout.infinitepay.io';
+const PROVIDER_TIMEOUT_MS = 8_000;
+const ALLOWED_CHECKOUT_HOSTS = new Set([
+  'checkout.infinitepay.com.br',
+  'checkout.infinitepay.io',
+]);
+
 export interface CreatePaymentLinkParams {
   orderNsu: string;
-  attemptId: string;
   amountCents: number;
   webhookToken: string;
   registrationPublicCode: string;
@@ -14,41 +20,211 @@ export interface CreatePaymentLinkParams {
 
 export interface PaymentLinkResult {
   checkoutUrl: string;
-  invoiceSlug: string;
-  providerData?: any;
+  invoiceSlug?: string;
 }
 
 export interface PaymentCheckResult {
   success: boolean;
   paid: boolean;
-  paidAmount: number;
+  orderAmount?: number;
+  paidAmount?: number;
   transactionNsu?: string;
+  invoiceSlug?: string;
   installments?: number;
   captureMethod?: string;
   receiptUrl?: string;
   rawStatus?: string;
 }
 
+export type InfinitePayErrorCode =
+  | 'configuration_error'
+  | 'provider_rejected'
+  | 'provider_timeout'
+  | 'provider_unavailable'
+  | 'invalid_provider_response';
+
+export class InfinitePayError extends Error {
+  constructor(
+    message: string,
+    public readonly code: InfinitePayErrorCode,
+    public readonly httpStatus: number,
+    public readonly providerStatus?: number
+  ) {
+    super(message);
+    this.name = 'InfinitePayError';
+  }
+}
+
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === 'production' || process.env.CONTEXT === 'production';
+}
+
+function normalizeHandle(value: string | undefined): string {
+  return (value || '').trim().replace(/^[$@]+/, '');
+}
+
+function safeProviderMessage(payload: unknown, handle?: string): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const record = payload as Record<string, unknown>;
+  const detail = record.message ?? record.error ?? record.detail;
+  if (typeof detail !== 'string') return undefined;
+  let sanitized = detail
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/https?:\/\/\S+/gi, '[url]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+    .replace(/[A-Za-z0-9_-]{32,}/g, '[token]');
+  if (handle) sanitized = sanitized.replaceAll(handle, '[handle]');
+  return sanitized.slice(0, 180);
+}
+
+function safeHttpsUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function nonNegativeInteger(value: unknown): number | undefined {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
 export class InfinitePayProvider {
   public getHandle(): string {
-    const fromDb = db.getSetting('infinitepay_handle');
-    const raw = fromDb || process.env.INFINITEPAY_HANDLE || '';
-    return raw.replace('$', '').trim();
+    // In production the deployment environment is authoritative. A stale value
+    // saved through the admin panel must never override Netlify configuration.
+    const raw = isProductionRuntime()
+      ? process.env.INFINITEPAY_HANDLE
+      : db.getSetting('infinitepay_handle') || process.env.INFINITEPAY_HANDLE;
+    const handle = normalizeHandle(raw);
+    if (!handle || !/^[^\s/?#]{2,100}$/.test(handle)) {
+      throw new InfinitePayError(
+        'INFINITEPAY_HANDLE não configurado ou inválido',
+        'configuration_error',
+        500
+      );
+    }
+    return handle;
+  }
+
+  public getHandleDiagnostic(): { source: 'environment' | 'database'; masked: string } {
+    const source = isProductionRuntime() || !db.getSetting('infinitepay_handle')
+      ? 'environment'
+      : 'database';
+    const handle = this.getHandle();
+    const masked = handle.length <= 4
+      ? `${handle[0] || ''}***`
+      : `${handle.slice(0, 2)}***${handle.slice(-2)}`;
+    return { source, masked };
   }
 
   public getMode(): 'production' | 'sandbox' {
-    if (process.env.NODE_ENV === 'production') return 'production';
+    if (isProductionRuntime()) return 'production';
     const fromDb = db.getSetting('infinitepay_mode');
     const raw = (fromDb || process.env.INFINITEPAY_MODE || 'production').toLowerCase().trim();
-    if (raw === 'sandbox' || raw === 'teste' || raw === 'test') {
-      return 'sandbox';
-    }
-    return 'production';
+    return ['sandbox', 'teste', 'test'].includes(raw) ? 'sandbox' : 'production';
   }
 
-  /**
-   * Generates a 32-byte cryptographically secure token and its SHA-256 hash
-   */
+  private getApiUrl(): string {
+    const configured = (process.env.INFINITEPAY_API_URL || DEFAULT_API_URL).trim().replace(/\/$/, '');
+    let url: URL;
+    try {
+      url = new URL(configured);
+    } catch {
+      throw new InfinitePayError('INFINITEPAY_API_URL inválida', 'configuration_error', 500);
+    }
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/' ||
+      (isProductionRuntime() && url.hostname !== 'api.checkout.infinitepay.io')
+    ) {
+      throw new InfinitePayError('INFINITEPAY_API_URL não autorizada', 'configuration_error', 500);
+    }
+    return url.origin;
+  }
+
+  private async post(
+    path: '/links' | '/payment_check',
+    body: Record<string, unknown>,
+    orderNsu: string
+  ): Promise<Record<string, any>> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.getApiUrl()}${path}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const timedOut = error instanceof Error &&
+        (error.name === 'TimeoutError' || error.name === 'AbortError');
+      console.error('InfinitePay request failed', {
+        operation: path,
+        orderNsu,
+        reason: timedOut ? 'timeout' : 'network_error',
+      });
+      throw new InfinitePayError(
+        timedOut ? 'Tempo limite excedido ao consultar a InfinitePay' : 'InfinitePay indisponível',
+        timedOut ? 'provider_timeout' : 'provider_unavailable',
+        timedOut ? 504 : 502
+      );
+    }
+
+    const rawBody = await response.text();
+    let payload: unknown = null;
+    try {
+      payload = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      payload = null;
+    }
+
+    if (!response.ok) {
+      const detail = safeProviderMessage(
+        payload,
+        typeof body.handle === 'string' ? body.handle : undefined
+      );
+      console.error('InfinitePay request rejected', {
+        operation: path,
+        orderNsu,
+        status: response.status,
+        contentType: response.headers.get('content-type'),
+        responseKeys: payload && typeof payload === 'object' ? Object.keys(payload).slice(0, 12) : [],
+        detail,
+      });
+      throw new InfinitePayError(
+        detail || `InfinitePay respondeu com HTTP ${response.status}`,
+        'provider_rejected',
+        502,
+        response.status
+      );
+    }
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      console.error('InfinitePay returned an invalid response', {
+        operation: path,
+        orderNsu,
+        status: response.status,
+        contentType: response.headers.get('content-type'),
+      });
+      throw new InfinitePayError(
+        'A InfinitePay retornou uma resposta inválida',
+        'invalid_provider_response',
+        502
+      );
+    }
+
+    return payload as Record<string, any>;
+  }
+
   public static generateWebhookToken(): { rawToken: string; tokenHash: string } {
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -59,205 +235,174 @@ export class InfinitePayProvider {
     return crypto.createHash('sha256').update(rawToken).digest('hex');
   }
 
-  /**
-   * Creates payment link via InfinitePay official hosted checkout or Sandbox checkout
-   */
   public async createPaymentLink(params: CreatePaymentLinkParams): Promise<PaymentLinkResult> {
-    const invoiceSlug = `inv_${params.orderNsu.substring(0, 12)}`;
-    const handle = this.getHandle();
-    const mode = this.getMode();
-    if (mode === 'production') {
-      if (!handle) throw new Error('INFINITEPAY_HANDLE não configurado');
-
-      const endpoint = process.env.INFINITEPAY_CHECKOUT_API_URL || 'https://api.checkout.infinitepay.io/links';
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          handle,
-          order_nsu: params.orderNsu,
-          redirect_url: params.returnUrl,
-          webhook_url: params.webhookUrl,
-          items: [
-            {
-              quantity: 1,
-              price: params.amountCents,
-              description: `Camiseta Ultra Volleyball - ${params.registrationPublicCode}`,
-            },
-          ],
-        }),
-      });
-
-      const rawBody = await response.text();
-      let data: any = {};
-      try {
-        data = rawBody ? JSON.parse(rawBody) : {};
-      } catch {
-        data = {};
-      }
-      if (!response.ok || !data.url) {
-        console.error('InfinitePay checkout request rejected', {
-          status: response.status,
-          contentType: response.headers.get('content-type'),
-          response: rawBody.slice(0, 500),
-        });
-        const message = data.message || data.error || `HTTP ${response.status}`;
-        throw new Error(`InfinitePay recusou a criação do checkout: ${message}`);
-      }
-
+    if (this.getMode() === 'sandbox') {
       return {
-        checkoutUrl: data.url,
-        invoiceSlug: data.slug || invoiceSlug,
-        providerData: data,
+        checkoutUrl: `/checkout/infinitepay?order_nsu=${encodeURIComponent(params.orderNsu)}&token=${encodeURIComponent(params.webhookToken)}`,
       };
     }
 
-    // Integrated sandbox checkout gateway
-    const checkoutUrl = `/checkout/infinitepay?order_nsu=${params.orderNsu}&token=${params.webhookToken}`;
+    const data = await this.post('/links', {
+      handle: this.getHandle(),
+      order_nsu: params.orderNsu,
+      redirect_url: params.returnUrl,
+      webhook_url: params.webhookUrl,
+      items: [
+        {
+          quantity: 1,
+          price: params.amountCents,
+          description: `Camiseta Ultra Volleyball - ${params.registrationPublicCode}`,
+        },
+      ],
+    }, params.orderNsu);
+
+    let checkoutUrl: URL;
+    try {
+      checkoutUrl = new URL(String(data.url || ''));
+    } catch {
+      throw new InfinitePayError(
+        'A InfinitePay não retornou uma URL de checkout válida',
+        'invalid_provider_response',
+        502
+      );
+    }
+    if (
+      checkoutUrl.protocol !== 'https:' ||
+      !ALLOWED_CHECKOUT_HOSTS.has(checkoutUrl.hostname.toLowerCase())
+    ) {
+      console.error('InfinitePay returned an unexpected checkout host', {
+        orderNsu: params.orderNsu,
+        protocol: checkoutUrl.protocol,
+        host: checkoutUrl.hostname,
+      });
+      throw new InfinitePayError(
+        'A InfinitePay retornou um endereço de checkout inesperado',
+        'invalid_provider_response',
+        502
+      );
+    }
+
     return {
-      checkoutUrl,
-      invoiceSlug,
+      checkoutUrl: checkoutUrl.href,
+      // The real slug is supplied by the redirect/webhook. Never invent one.
+      invoiceSlug: typeof data.slug === 'string' && data.slug ? data.slug : undefined,
     };
   }
 
-  /**
-   * Checks payment status from the provider server-side
-   */
   public async checkPayment(
     orderNsu: string,
     payment: Payment,
     details: { transactionNsu?: string; invoiceSlug?: string } = {}
   ): Promise<PaymentCheckResult> {
-    if (this.getMode() === 'production') {
-      const transactionNsu = details.transactionNsu || payment.transaction_nsu;
-      const invoiceSlug = details.invoiceSlug || payment.invoice_slug;
-      if (!transactionNsu || !invoiceSlug) {
-        return { success: true, paid: false, paidAmount: 0, rawStatus: 'awaiting_provider_reference' };
-      }
-
-      const endpoint = process.env.INFINITEPAY_PAYMENT_CHECK_API_URL || 'https://api.checkout.infinitepay.io/payment_check';
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            handle: this.getHandle(),
-            order_nsu: orderNsu,
-            transaction_nsu: transactionNsu,
-            slug: invoiceSlug,
-          }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          return { success: false, paid: false, paidAmount: 0, rawStatus: `http_${response.status}` };
-        }
-
-        return {
-          success: true,
-          paid: data.paid === true,
-          paidAmount: Number(data.amount),
-          transactionNsu,
-          installments: Number(data.installments) || 1,
-          captureMethod: data.capture_method || 'pix',
-          receiptUrl: data.receipt_url,
-          rawStatus: data.paid ? 'paid' : 'pending',
-        };
-      } catch (err) {
-        console.error('Failed to query InfinitePay checkout status:', err);
-        return { success: false, paid: false, paidAmount: 0, rawStatus: 'provider_unavailable' };
-      }
+    if (this.getMode() === 'sandbox') {
+      return payment.status === 'paid'
+        ? {
+            success: true,
+            paid: true,
+            orderAmount: payment.amount,
+            paidAmount: payment.paid_amount ?? payment.amount,
+            transactionNsu: payment.transaction_nsu,
+            installments: payment.installments ?? 1,
+            captureMethod: payment.capture_method || 'pix',
+            receiptUrl: safeHttpsUrl(payment.receipt_url),
+          }
+        : { success: true, paid: false, rawStatus: payment.status };
     }
 
-    // In sandbox / simulated mode or if already marked paid in payment object
-    if (payment.status === 'paid') {
-      return {
-        success: true,
-        paid: true,
-        paidAmount: payment.paid_amount || payment.amount,
-        transactionNsu: payment.transaction_nsu,
-        installments: payment.installments || 1,
-        captureMethod: payment.capture_method || 'pix',
-        receiptUrl: payment.receipt_url,
-      };
+    const transactionNsu = details.transactionNsu || payment.transaction_nsu;
+    const invoiceSlug = details.invoiceSlug || payment.invoice_slug;
+    if (!transactionNsu || !invoiceSlug) {
+      return { success: true, paid: false, rawStatus: 'awaiting_provider_reference' };
     }
+
+    const data = await this.post('/payment_check', {
+      handle: this.getHandle(),
+      order_nsu: orderNsu,
+      transaction_nsu: transactionNsu,
+      slug: invoiceSlug,
+    }, orderNsu);
 
     return {
-      success: true,
-      paid: false,
-      paidAmount: 0,
-      rawStatus: payment.status,
+      success: data.success === true,
+      paid: data.success === true && data.paid === true,
+      orderAmount: nonNegativeInteger(data.amount),
+      paidAmount: nonNegativeInteger(data.paid_amount),
+      transactionNsu,
+      invoiceSlug,
+      installments: nonNegativeInteger(data.installments),
+      captureMethod: typeof data.capture_method === 'string' ? data.capture_method : undefined,
+      receiptUrl: safeHttpsUrl(data.receipt_url),
+      rawStatus: data.paid === true ? 'paid' : 'pending',
     };
   }
 }
 
 export const infinitePayProvider = new InfinitePayProvider();
 
-/**
- * Central idempotent payment confirmation function.
- * Webhook and payment-check both use this function.
- */
 export function confirmPayment(params: {
   orderNsu: string;
   transactionNsu: string;
-  paidAmount: number;
+  orderAmount: number;
+  paidAmount?: number;
   captureMethod?: string;
   installments?: number;
   receiptUrl?: string;
-}): { success: boolean; error?: string; registration?: Registration; payment?: Payment } {
+}): { success: boolean; conflict?: boolean; error?: string; registration?: Registration; payment?: Payment } {
+  const transactionNsu = params.transactionNsu.trim();
+  if (!transactionNsu) {
+    return { success: false, error: 'Transação não informada' };
+  }
+
   const payment = db.findPaymentByOrderNsu(params.orderNsu);
   if (!payment) {
-    return { success: false, error: 'Payment record not found for order_nsu' };
+    return { success: false, error: 'Pagamento não encontrado' };
   }
 
-  // Idempotency: if already paid, do not repeat
   if (payment.status === 'paid') {
-    const reg = db.getRegistrationById(payment.registration_id);
-    return { success: true, payment, registration: reg };
-  }
-
-  // Amount verification: paidAmount MUST match payment.amount
-  if (params.paidAmount !== payment.amount) {
-    console.error(`Amount mismatch: expected ${payment.amount}, received ${params.paidAmount}`);
-    db.updatePayment(payment.id, {
-      status: 'failed',
-      error: `Valor divergente: esperado ${payment.amount}, recebido ${params.paidAmount}`,
-    });
-    db.updateRegistrationStatus(payment.registration_id, 'payment_failed');
-    return { success: false, error: 'Valor pago diverge do valor esperado' };
-  }
-
-  // Uniqueness check for transaction_nsu: one transaction cannot pay two registrations
-  if (params.transactionNsu) {
-    const existingWithTransaction = db.findPaymentByTransactionNsu(params.transactionNsu);
-    if (existingWithTransaction && existingWithTransaction.id !== payment.id) {
-      console.error(`Duplicate transaction_nsu detected: ${params.transactionNsu}`);
-      return { success: false, error: 'Esta transação já foi associada a outra inscrição' };
+    if (payment.transaction_nsu !== transactionNsu) {
+      console.error('Paid order received a different transaction reference', {
+        orderNsu: params.orderNsu,
+      });
+      return { success: false, conflict: true, error: 'Transação diverge da confirmação anterior' };
     }
+    return {
+      success: true,
+      payment,
+      registration: db.getRegistrationById(payment.registration_id),
+    };
+  }
+
+  if (!Number.isInteger(params.orderAmount) || params.orderAmount !== payment.amount) {
+    console.error('Payment amount mismatch', {
+      orderNsu: params.orderNsu,
+      expected: payment.amount,
+      received: params.orderAmount,
+    });
+    return { success: false, conflict: true, error: 'Valor confirmado diverge do valor esperado' };
+  }
+
+  const existingWithTransaction = db.findPaymentByTransactionNsu(transactionNsu);
+  if (existingWithTransaction && existingWithTransaction.id !== payment.id) {
+    console.error('Duplicate transaction reference', { orderNsu: params.orderNsu });
+    return { success: false, conflict: true, error: 'Transação já associada a outra inscrição' };
   }
 
   const now = new Date().toISOString();
-
-  // Update payment to paid
   const updatedPayment = db.updatePayment(payment.id, {
     status: 'paid',
     paid_amount: params.paidAmount,
-    transaction_nsu: params.transactionNsu,
-    capture_method: params.captureMethod || 'pix',
-    installments: params.installments || 1,
-    receipt_url: params.receiptUrl || `https://recibo.infinitepay.io/${params.transactionNsu}`,
+    transaction_nsu: transactionNsu,
+    capture_method: params.captureMethod,
+    installments: params.installments,
+    receipt_url: safeHttpsUrl(params.receiptUrl),
+    error: undefined,
     paid_at: now,
   });
 
-  // Update registration to confirmed
   db.updateRegistrationStatus(payment.registration_id, 'confirmed', now);
-  const updatedRegistration = db.getRegistrationById(payment.registration_id);
-
   return {
     success: true,
     payment: updatedPayment || payment,
-    registration: updatedRegistration,
+    registration: db.getRegistrationById(payment.registration_id),
   };
 }

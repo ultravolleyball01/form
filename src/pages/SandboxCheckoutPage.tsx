@@ -66,7 +66,7 @@ export const SandboxCheckoutPage: React.FC = () => {
   };
 
   const pixCode = `00020126580014BR.GOV.BCB.PIX0136${orderNsu}5204000053039865405${
-    statusData ? (statusData.amount / 100).toFixed(2) : '60.00'
+    statusData ? (statusData.amount / 100).toFixed(2) : '70.00'
   }5802BR5925ULTRA VOLLEYBALL CLUBE6009SAO PAULO62070503***6304`;
 
   const copyPix = () => {
@@ -86,7 +86,7 @@ export const SandboxCheckoutPage: React.FC = () => {
 
   const formattedAmount = statusData
     ? `R$ ${(statusData.amount / 100).toFixed(2).replace('.', ',')}`
-    : 'R$ 60,00';
+    : 'R$ 70,00';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-blue-950 text-slate-100 font-sans py-8 px-4">

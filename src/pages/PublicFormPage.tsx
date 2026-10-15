@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { api, ApiError } from '../lib/api';
 import type { PublicFormConfig, FormField } from '../types';
 import { DynamicFieldRenderer } from '../components/DynamicFieldRenderer';
 import { SizeGuideModal } from '../components/SizeGuideModal';
@@ -13,7 +13,42 @@ import {
   HelpCircle,
 } from 'lucide-react';
 
+const PENDING_CHECKOUT_KEY = 'ultra_pending_checkout_v1';
+
+type PendingCheckout = {
+  fingerprint: string;
+  attemptId: string;
+  registrationId?: string;
+};
+
+function readPendingCheckout(): PendingCheckout | undefined {
+  try {
+    const saved = sessionStorage.getItem(PENDING_CHECKOUT_KEY);
+    return saved ? JSON.parse(saved) as PendingCheckout : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writePendingCheckout(value: PendingCheckout): void {
+  try {
+    sessionStorage.setItem(PENDING_CHECKOUT_KEY, JSON.stringify(value));
+  } catch {
+    // Some browsers block storage. The in-memory reference still protects
+    // retries made while this page remains mounted.
+  }
+}
+
+function clearPendingCheckout(): void {
+  try {
+    sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+  } catch {
+    // Storage may be unavailable in restrictive/private browsing contexts.
+  }
+}
+
 export const PublicFormPage: React.FC = () => {
+  const pendingCheckoutRef = useRef<PendingCheckout | undefined>(undefined);
   const [config, setConfig] = useState<PublicFormConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -94,24 +129,57 @@ export const PublicFormPage: React.FC = () => {
     try {
       setSubmitting(true);
 
-      // 1. Generate unique attempt_id for idempotency (Rule 37 & 38)
-      const attemptId = crypto.randomUUID();
-
-      // 2. Create pending registration in backend
-      const regResponse = await api.createRegistration({
+      const submission = {
         full_name: fullName.trim(),
         class_id: classId,
         shirt_size_id: shirtSizeId,
         dynamic_answers: dynamicAnswers,
-      });
+      };
+      const fingerprint = JSON.stringify(submission);
 
-      const registrationId = regResponse.registration.id;
+      let pending = pendingCheckoutRef.current;
+      if (!pending) {
+        const saved = readPendingCheckout();
+        if (saved?.fingerprint === fingerprint && saved.attemptId) pending = saved;
+      }
+      if (pending?.fingerprint !== fingerprint) pending = undefined;
+      pending ||= { fingerprint, attemptId: crypto.randomUUID() };
+      pendingCheckoutRef.current = pending;
+      writePendingCheckout(pending);
 
-      // 3. Create payment order via InfinitePay provider
-      const orderResponse = await api.createOrder(registrationId, attemptId);
+      // Reuse the registration and attempt after an interrupted response. This
+      // prevents duplicate registrations/checkouts when the user retries.
+      if (!pending.registrationId) {
+        const regResponse = await api.createRegistration({
+          ...submission,
+          attempt_id: pending.attemptId,
+        });
+        pending.registrationId = regResponse.registration.id;
+        writePendingCheckout(pending);
+      }
+      const registrationId = pending.registrationId;
+      if (!registrationId) throw new Error('Não foi possível identificar a inscrição criada.');
+
+      let orderResponse;
+      try {
+        orderResponse = await api.createOrder(registrationId, pending.attemptId);
+      } catch (error) {
+        // A known failed attempt cannot be reused because its webhook token is
+        // intentionally not stored in plaintext. Retry the same registration
+        // with one fresh idempotency key.
+        if (error instanceof ApiError && error.code === 'checkout_attempt_failed') {
+          pending.attemptId = crypto.randomUUID();
+          writePendingCheckout(pending);
+          orderResponse = await api.createOrder(registrationId, pending.attemptId);
+        } else {
+          throw error;
+        }
+      }
 
       // 4. Redirect directly to InfinitePay checkout in the same tab
       if (orderResponse.checkout_url) {
+        pendingCheckoutRef.current = undefined;
+        clearPendingCheckout();
         window.location.assign(orderResponse.checkout_url);
       } else {
         throw new Error('URL de checkout não disponível');
@@ -125,7 +193,7 @@ export const PublicFormPage: React.FC = () => {
 
   const formattedPrice = config
     ? `R$ ${(config.shirt_price / 100).toFixed(2).replace('.', ',')}`
-    : 'R$ 60,00';
+    : 'R$ 70,00';
 
   if (loading) {
     return (

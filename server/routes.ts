@@ -5,6 +5,7 @@ import {
   infinitePayProvider,
   confirmPayment,
   InfinitePayProvider,
+  InfinitePayError,
 } from './infinitepay';
 import {
   createAdminToken,
@@ -18,8 +19,10 @@ import { getAppUrl } from './config';
 
 export const apiRouter = Router();
 apiRouter.use('/admin', requireSameOrigin);
+apiRouter.use(['/registrations', '/create-order', '/payment-check', '/sandbox'], requireSameOrigin);
 
 const registrationInputSchema = z.object({
+  attempt_id: z.string().trim().min(8).max(128).optional(),
   full_name: z.string().trim().min(3).max(150),
   class_id: z.string().uuid(),
   shirt_size_id: z.string().uuid(),
@@ -33,14 +36,35 @@ const createOrderInputSchema = z.object({
 
 const paymentCheckInputSchema = z.object({
   order_nsu: z.string().uuid(),
-  transaction_nsu: z.string().trim().max(200).optional(),
-  invoice_slug: z.string().trim().max(200).optional(),
+  transaction_nsu: z.string().trim().min(1).max(200),
+  invoice_slug: z.string().trim().min(1).max(200),
+});
+
+const infinitePayWebhookSchema = z.object({
+  order_nsu: z.string().uuid(),
+  amount: z.coerce.number().int().nonnegative(),
+  paid_amount: z.coerce.number().int().nonnegative().optional(),
+  transaction_nsu: z.string().trim().min(1).max(200),
+  capture_method: z.string().trim().max(80).optional(),
+  installments: z.coerce.number().int().positive().max(100).optional(),
+  receipt_url: z.string().trim().max(2_048).optional(),
+  invoice_slug: z.string().trim().min(1).max(200).optional(),
 });
 
 const loginInputSchema = z.object({
   username: z.string().trim().min(1).max(80),
   password: z.string().min(1).max(200),
 });
+
+function safePublicHttpsUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // ==========================================
 // PUBLIC ENDPOINTS
@@ -84,7 +108,35 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
       res.status(400).json({ error: 'Dados da inscrição inválidos.' });
       return;
     }
-    const { full_name, class_id, shirt_size_id, dynamic_answers } = parsed.data;
+    const { attempt_id, full_name, class_id, shirt_size_id, dynamic_answers } = parsed.data;
+
+    if (attempt_id) {
+      const existing = db.getRegistrationBySubmissionAttemptId(attempt_id);
+      if (existing) {
+        const sameSubmission =
+          existing.participant_name === full_name.trim() &&
+          existing.class_id === class_id &&
+          existing.shirt_size_id === shirt_size_id;
+        if (!sameSubmission) {
+          res.status(409).json({ error: 'Identificador de tentativa já utilizado em outra inscrição.' });
+          return;
+        }
+        res.json({
+          registration: {
+            id: existing.id,
+            public_code: existing.public_code,
+            participant_name: existing.participant_name,
+            class_label: existing.class_label_snapshot,
+            shirt_size_code: existing.shirt_size_code_snapshot,
+            shirt_category: existing.shirt_category_snapshot,
+            amount: existing.amount,
+            status: existing.status,
+          },
+          reused: true,
+        });
+        return;
+      }
+    }
 
     // 1. Validate full_name
     const trimmedName = typeof full_name === 'string' ? full_name.trim() : '';
@@ -178,6 +230,7 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
     // 6. Create registration record with historical snapshot
     const registration = db.createRegistration(
       {
+        submission_attempt_id: attempt_id,
         participant_name: trimmedName,
         class_id: classItem.id,
         class_label_snapshot: classItem.display_label,
@@ -233,11 +286,21 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
         res.status(409).json({ error: 'Identificador de tentativa já utilizado.' });
         return;
       }
-      res.json({
-        order_nsu: existingPayment.order_nsu,
-        checkout_url: existingPayment.checkout_url,
-        amount: existingPayment.amount,
-        status: existingPayment.status,
+      if (existingPayment.checkout_url) {
+        res.json({
+          order_nsu: existingPayment.order_nsu,
+          checkout_url: existingPayment.checkout_url,
+          amount: existingPayment.amount,
+          status: existingPayment.status,
+          reused: true,
+        });
+        return;
+      }
+      res.status(409).json({
+        error: existingPayment.status === 'failed'
+          ? 'A tentativa anterior falhou antes de criar o checkout. Inicie uma nova tentativa.'
+          : 'Esta tentativa ainda está sendo processada. Aguarde alguns segundos e tente novamente.',
+        code: existingPayment.status === 'failed' ? 'checkout_attempt_failed' : 'checkout_attempt_pending',
       });
       return;
     }
@@ -273,16 +336,33 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
     createdPaymentId = payment.id;
 
     // 5. Build return URL
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-    const host = req.headers['x-forwarded-host'] || req.get('host');
-    const baseUrl = getAppUrl() || `${protocol}://${host}`;
+    const configuredBaseUrl = getAppUrl();
+    const productionRuntime = process.env.NODE_ENV === 'production' || process.env.CONTEXT === 'production';
+    if (!configuredBaseUrl && productionRuntime) {
+      throw new Error('URL pública canônica não configurada');
+    }
+    const protocol = req.protocol || 'http';
+    const host = req.get('host');
+    const baseUrl = configuredBaseUrl || `${protocol}://${host}`;
     const returnUrl = `${baseUrl}/pagamento/processando?order_nsu=${order_nsu}`;
     const webhookUrl = `${baseUrl}/api/webhook/infinitepay?token=${encodeURIComponent(rawToken)}`;
+
+    const providerMode = infinitePayProvider.getMode();
+    const handleDiagnostic = providerMode === 'production'
+      ? infinitePayProvider.getHandleDiagnostic()
+      : { source: 'database' as const, masked: 'sandbox' };
+    console.info('Creating InfinitePay checkout', {
+      orderNsu: order_nsu,
+      attemptId: attempt_id,
+      handleSource: handleDiagnostic.source,
+      handle: handleDiagnostic.masked,
+      providerMode,
+      publicOrigin: new URL(baseUrl).origin,
+    });
 
     // 6. Call InfinitePay provider
     const linkResult = await infinitePayProvider.createPaymentLink({
       orderNsu: order_nsu,
-      attemptId: attempt_id,
       amountCents: registration.amount,
       webhookToken: rawToken,
       registrationPublicCode: registration.public_code,
@@ -293,14 +373,14 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
     // 7. Update payment record with checkout URL & invoice slug
     db.updatePayment(payment.id, {
       checkout_url: linkResult.checkoutUrl,
-      invoice_slug: linkResult.invoiceSlug,
+      ...(linkResult.invoiceSlug ? { invoice_slug: linkResult.invoiceSlug } : {}),
       status: 'processing',
     });
 
     // Update registration status to processing_payment
     db.updateRegistrationStatus(registration.id, 'processing_payment');
 
-    res.json({
+    res.status(201).json({
       order_nsu,
       checkout_url: linkResult.checkoutUrl,
       attempt_id,
@@ -308,22 +388,31 @@ apiRouter.post('/create-order', paymentLimiter, async (req, res) => {
       status: 'processing',
     });
   } catch (err: any) {
-    console.error('Error in /api/create-order:', err);
+    console.error('Error in /api/create-order', {
+      paymentId: createdPaymentId,
+      registrationId,
+      code: err instanceof InfinitePayError ? err.code : 'internal_error',
+      providerStatus: err instanceof InfinitePayError ? err.providerStatus : undefined,
+    });
     if (createdPaymentId) {
       db.updatePayment(createdPaymentId, {
         status: 'failed',
-        error: err instanceof Error ? err.message : 'Falha ao criar checkout',
+        error: err instanceof InfinitePayError ? err.code : 'internal_error',
       });
     }
     if (registrationId) {
       db.updateRegistrationStatus(registrationId, 'payment_failed');
     }
-    const providerRejected =
-      err instanceof Error && err.message.startsWith('InfinitePay recusou a criação do checkout:');
-    res.status(providerRejected ? 502 : 500).json({
-      error: providerRejected
-        ? 'A InfinitePay recusou o checkout. Verifique a InfiniteTag e se o Checkout Integrado está habilitado na conta.'
+    const status = err instanceof InfinitePayError ? err.httpStatus : 500;
+    res.status(status).json({
+      error: err instanceof InfinitePayError
+        ? err.code === 'provider_timeout'
+          ? 'A InfinitePay demorou para responder. Tente novamente em instantes.'
+          : err.code === 'configuration_error'
+            ? 'O checkout ainda não está configurado corretamente.'
+            : 'Não foi possível iniciar o pagamento na InfinitePay.'
         : 'Erro ao gerar ordem de pagamento',
+      code: err instanceof InfinitePayError ? err.code : 'internal_error',
     });
   }
 });
@@ -370,7 +459,7 @@ apiRouter.get('/order-status', (req, res) => {
       length_cm: registration.shirt_length_cm_snapshot,
       amount: registration.amount,
       paid_at: registration.confirmed_at || payment?.paid_at,
-      receipt_url: payment?.receipt_url,
+      receipt_url: safePublicHttpsUrl(payment?.receipt_url),
       capture_method: payment?.capture_method,
       installments: payment?.installments,
       transaction_nsu: payment?.transaction_nsu,
@@ -412,44 +501,48 @@ apiRouter.post('/payment-check', paymentLimiter, async (req, res) => {
       return;
     }
 
-    if (invoice_slug && !payment.invoice_slug) {
-      db.updatePayment(payment.id, { invoice_slug: String(invoice_slug) });
-    }
-
     // Consult provider server-side
     const checkResult = await infinitePayProvider.checkPayment(order_nsu, payment, {
-      transactionNsu: transaction_nsu ? String(transaction_nsu) : undefined,
-      invoiceSlug: invoice_slug ? String(invoice_slug) : undefined,
+      transactionNsu: transaction_nsu,
+      invoiceSlug: invoice_slug,
     });
 
     if (checkResult.success && checkResult.paid) {
-      // Validate amount
-      if (checkResult.paidAmount === payment.amount) {
-        const confirmResult = confirmPayment({
-          orderNsu: order_nsu,
-          transactionNsu: checkResult.transactionNsu || `TRX-${Date.now()}`,
-          paidAmount: checkResult.paidAmount,
-          captureMethod: checkResult.captureMethod,
-          installments: checkResult.installments,
-          receiptUrl: checkResult.receiptUrl,
-        });
-
-        res.json({
-          success: confirmResult.success,
-          paid: confirmResult.success,
-          status: confirmResult.success ? 'confirmed' : 'failed',
-          error: confirmResult.error,
-          registration: confirmResult.registration,
-        });
+      if (!checkResult.transactionNsu || checkResult.orderAmount === undefined) {
+        res.status(502).json({ error: 'A InfinitePay não retornou os dados completos da confirmação.' });
         return;
-      } else {
-        res.status(400).json({
+      }
+
+      const confirmResult = confirmPayment({
+        orderNsu: order_nsu,
+        transactionNsu: checkResult.transactionNsu,
+        orderAmount: checkResult.orderAmount,
+        paidAmount: checkResult.paidAmount,
+        captureMethod: checkResult.captureMethod,
+        installments: checkResult.installments,
+        receiptUrl: checkResult.receiptUrl,
+      });
+
+      if (!confirmResult.success) {
+        res.status(confirmResult.conflict ? 409 : 400).json({
           success: false,
           paid: false,
-          error: 'Valor pago diverge do valor da inscrição',
+          status: 'failed',
+          error: confirmResult.error,
         });
         return;
       }
+
+      db.updatePayment(payment.id, {
+        invoice_slug: checkResult.invoiceSlug,
+      });
+      res.json({
+        success: true,
+        paid: true,
+        status: 'confirmed',
+        registration: confirmResult.registration,
+      });
+      return;
     }
 
     res.json({
@@ -458,8 +551,15 @@ apiRouter.post('/payment-check', paymentLimiter, async (req, res) => {
       status: payment.status,
     });
   } catch (err: any) {
-    console.error('Error in /api/payment-check:', err);
-    res.status(500).json({ error: 'Erro ao verificar pagamento' });
+    console.error('Error in /api/payment-check', {
+      code: err instanceof InfinitePayError ? err.code : 'internal_error',
+      providerStatus: err instanceof InfinitePayError ? err.providerStatus : undefined,
+    });
+    res.status(err instanceof InfinitePayError ? err.httpStatus : 500).json({
+      error: err instanceof InfinitePayError
+        ? 'Não foi possível consultar a confirmação na InfinitePay.'
+        : 'Erro ao verificar pagamento',
+    });
   }
 });
 
@@ -469,17 +569,31 @@ apiRouter.post('/payment-check', paymentLimiter, async (req, res) => {
  */
 apiRouter.post('/webhook/infinitepay', (req, res) => {
   try {
-    const { order_nsu, amount, transaction_nsu, capture_method, installments, receipt_url, invoice_slug } = req.body;
+    const parsed = infinitePayWebhookSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, message: 'Dados da notificação inválidos' });
+      return;
+    }
+    const {
+      order_nsu,
+      amount,
+      paid_amount,
+      transaction_nsu,
+      capture_method,
+      installments,
+      receipt_url,
+      invoice_slug,
+    } = parsed.data;
     const token = String(req.query.token || '');
 
-    if (!order_nsu || !token || !transaction_nsu) {
-      res.status(400).json({ error: 'Parâmetros incompletos no webhook' });
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      res.status(400).json({ success: false, message: 'Webhook não autorizado' });
       return;
     }
 
     const payment = db.findPaymentByOrderNsu(order_nsu);
     if (!payment) {
-      res.status(404).json({ error: 'Pagamento não encontrado' });
+      res.status(400).json({ success: false, message: 'Pagamento não encontrado' });
       return;
     }
 
@@ -488,41 +602,47 @@ apiRouter.post('/webhook/infinitepay', (req, res) => {
     const expectedHash = Buffer.from(payment.webhook_token_hash, 'hex');
     if (calculatedHash.length !== expectedHash.length || !crypto.timingSafeEqual(calculatedHash, expectedHash)) {
       console.warn('Webhook token verification failed for order_nsu:', order_nsu);
-      res.status(401).json({ error: 'Token de webhook inválido' });
+      res.status(400).json({ success: false, message: 'Webhook não autorizado' });
       return;
     }
 
     // Amount validation (Rule 43)
-    const paidAmount = Number(amount);
-    if (paidAmount !== payment.amount) {
-      console.error(`Webhook amount divergence: expected ${payment.amount}, received ${paidAmount}`);
-      res.status(400).json({ error: 'Valor da notificação diverge do esperado' });
+    const orderAmount = amount;
+    if (orderAmount !== payment.amount) {
+      console.error('Webhook amount divergence', {
+        orderNsu: String(order_nsu),
+        expected: payment.amount,
+        received: orderAmount,
+      });
+      res.status(400).json({ success: false, message: 'Valor da notificação diverge do esperado' });
       return;
-    }
-
-    if (invoice_slug) {
-      db.updatePayment(payment.id, { invoice_slug: String(invoice_slug) });
     }
 
     // Central confirmation
     const result = confirmPayment({
       orderNsu: order_nsu,
       transactionNsu: String(transaction_nsu),
-      paidAmount,
+      orderAmount,
+      paidAmount: paid_amount,
       captureMethod: capture_method,
-      installments: Number(installments) || 1,
+      installments: installments ?? 1,
       receiptUrl: receipt_url,
     });
 
     if (!result.success) {
-      res.status(400).json({ error: result.error });
+      res.status(400).json({ success: false, message: result.error });
       return;
     }
 
-    res.json({ status: 'success', message: 'Pagamento processado com sucesso' });
+    if (invoice_slug) {
+      db.updatePayment(payment.id, { invoice_slug: String(invoice_slug) });
+    }
+    res.json({ success: true, message: null });
   } catch (err: any) {
-    console.error('Error in /api/webhook/infinitepay:', err);
-    res.status(500).json({ error: 'Erro ao processar webhook' });
+    console.error('Error in /api/webhook/infinitepay', {
+      error: err instanceof Error ? err.name : 'unknown',
+    });
+    res.status(500).json({ success: false, message: 'Erro ao processar webhook' });
   }
 });
 
@@ -558,6 +678,7 @@ apiRouter.post('/sandbox/simulate-payment', (req, res) => {
     const result = confirmPayment({
       orderNsu: order_nsu,
       transactionNsu,
+      orderAmount: payment.amount,
       paidAmount: payment.amount,
       captureMethod: capture_method,
       installments: 1,
@@ -1243,18 +1364,28 @@ apiRouter.put('/admin/shirt-sizes/:id', requireAdminAuth, (req, res) => {
  * Settings Management (Price, Password & InfinitePay)
  */
 apiRouter.get('/admin/settings', requireAdminAuth, (req, res) => {
+  const productionRuntime = process.env.NODE_ENV === 'production' || process.env.CONTEXT === 'production';
   res.json({
     shirt_price: db.getShirtPrice(),
-    infinitepay_handle: db.getSetting('infinitepay_handle', process.env.INFINITEPAY_HANDLE || ''),
-    infinitepay_mode: db.getSetting('infinitepay_mode', 'production'),
+    infinitepay_handle: productionRuntime
+      ? infinitePayProvider.getHandle()
+      : db.getSetting('infinitepay_handle', process.env.INFINITEPAY_HANDLE || ''),
+    infinitepay_mode: productionRuntime ? 'production' : db.getSetting('infinitepay_mode', 'production'),
+    infinitepay_managed_by_environment: productionRuntime,
   });
 });
 
 apiRouter.put('/admin/settings/infinitepay', requireAdminAuth, (req, res) => {
   try {
+    if (process.env.NODE_ENV === 'production' || process.env.CONTEXT === 'production') {
+      res.status(400).json({
+        error: 'Em produção, altere INFINITEPAY_HANDLE nas variáveis de ambiente da Netlify.',
+      });
+      return;
+    }
     const { handle, mode } = req.body;
     if (handle !== undefined) {
-      const cleanHandle = String(handle).replace('$', '').trim();
+      const cleanHandle = String(handle).replace(/^[$@]+/, '').trim();
       db.setSetting('infinitepay_handle', cleanHandle);
     }
     if (mode && (mode === 'production' || mode === 'sandbox')) {
@@ -1282,6 +1413,11 @@ apiRouter.put('/admin/settings/infinitepay', requireAdminAuth, (req, res) => {
 apiRouter.post('/admin/registrations/:id/confirm-payment', requireAdminAuth, (req, res) => {
   try {
     const { transaction_nsu, capture_method = 'pix' } = req.body;
+    const manualTransactionNsu = String(transaction_nsu || '').trim();
+    if (!manualTransactionNsu) {
+      res.status(400).json({ error: 'Informe o NSU real da transação para confirmar manualmente.' });
+      return;
+    }
     const reg = db.getRegistrationById(req.params.id);
     if (!reg) {
       res.status(404).json({ error: 'Inscrição não encontrada' });
@@ -1303,10 +1439,10 @@ apiRouter.post('/admin/registrations/:id/confirm-payment', requireAdminAuth, (re
       });
     }
 
-    const nsu = transaction_nsu || `MANUAL-${Date.now()}`;
     const result = confirmPayment({
       orderNsu: payment.order_nsu,
-      transactionNsu: nsu,
+      transactionNsu: manualTransactionNsu,
+      orderAmount: reg.amount,
       paidAmount: reg.amount,
       captureMethod: capture_method,
       installments: 1,

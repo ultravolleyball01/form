@@ -179,7 +179,7 @@ class Database {
         {
           id: generateUUID(),
           key: 'shirt_price',
-          value: '6000', // 6000 centavos = R$ 60,00
+          value: '7000', // 7000 centavos = R$ 70,00
           updated_at: now,
         },
       ],
@@ -278,9 +278,9 @@ class Database {
   }
 
   public getShirtPrice(): number {
-    const val = this.getSetting('shirt_price', '6000');
+    const val = this.getSetting('shirt_price', '7000');
     const parsed = parseInt(val, 10);
-    return Number.isFinite(parsed) ? parsed : 6000;
+    return Number.isFinite(parsed) ? parsed : 7000;
   }
 
   // Classes
@@ -454,6 +454,10 @@ class Database {
 
   public getRegistrationById(id: string): Registration | undefined {
     return this.data.registrations.find((r) => r.id === id);
+  }
+
+  public getRegistrationBySubmissionAttemptId(attemptId: string): Registration | undefined {
+    return this.data.registrations.find((r) => r.submission_attempt_id === attemptId);
   }
 
   public getRegistrationByPublicCode(publicCode: string): Registration | undefined {

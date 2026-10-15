@@ -173,7 +173,7 @@ export const SuccessPage: React.FC = () => {
                 <DollarSign className="w-3.5 h-3.5 text-slate-400" /> Valor Pago:
               </span>
               <strong className="text-emerald-700 font-black text-base">
-                {data?.amount ? `R$ ${(data.amount / 100).toFixed(2).replace('.', ',')}` : 'R$ 60,00'}
+                {data?.amount ? `R$ ${(data.amount / 100).toFixed(2).replace('.', ',')}` : 'R$ 70,00'}
               </strong>
             </div>
 

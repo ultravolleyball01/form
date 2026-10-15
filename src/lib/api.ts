@@ -7,6 +7,17 @@ import type {
   ShirtSize,
 } from '../types';
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function readJsonResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
   const body = await res.text();
   let result: any;
@@ -14,14 +25,18 @@ async function readJsonResponse<T>(res: Response, fallbackMessage: string): Prom
   try {
     result = body ? JSON.parse(body) : undefined;
   } catch {
-    throw new Error(`${fallbackMessage} (HTTP ${res.status}: resposta inválida do servidor)`);
+    throw new ApiError(`${fallbackMessage} (HTTP ${res.status}: resposta inválida do servidor)`, res.status);
   }
 
   if (!res.ok) {
-    throw new Error(result?.error || result?.message || `${fallbackMessage} (HTTP ${res.status})`);
+    throw new ApiError(
+      result?.error || result?.message || `${fallbackMessage} (HTTP ${res.status})`,
+      res.status,
+      result?.code
+    );
   }
   if (result === undefined) {
-    throw new Error(`${fallbackMessage} (HTTP ${res.status}: resposta vazia do servidor)`);
+    throw new ApiError(`${fallbackMessage} (HTTP ${res.status}: resposta vazia do servidor)`, res.status);
   }
 
   return result as T;
@@ -35,6 +50,7 @@ export const api = {
   },
 
   async createRegistration(data: {
+    attempt_id?: string;
     full_name: string;
     class_id: string;
     shirt_size_id: string;
@@ -63,11 +79,7 @@ export const api = {
     if (public_code) params.set('public_code', public_code);
 
     const res = await fetch(`/api/order-status?${params.toString()}`);
-    const result = await res.json();
-    if (!res.ok) {
-      throw new Error(result.error || 'Erro ao consultar status');
-    }
-    return result;
+    return readJsonResponse<any>(res, 'Erro ao consultar status');
   },
 
   async checkPayment(order_nsu: string, transaction_nsu?: string, invoice_slug?: string) {
@@ -76,11 +88,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_nsu, transaction_nsu, invoice_slug }),
     });
-    const result = await res.json();
-    if (!res.ok) {
-      throw new Error(result.error || 'Erro ao verificar pagamento');
-    }
-    return result;
+    return readJsonResponse<any>(res, 'Erro ao verificar pagamento');
   },
 
   async simulateSandboxPayment(order_nsu: string, token?: string, capture_method = 'pix') {
@@ -89,11 +97,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_nsu, token, capture_method }),
     });
-    const result = await res.json();
-    if (!res.ok) {
-      throw new Error(result.error || 'Erro ao simular pagamento');
-    }
-    return result;
+    return readJsonResponse<any>(res, 'Erro ao simular pagamento');
   },
 
   // Admin
