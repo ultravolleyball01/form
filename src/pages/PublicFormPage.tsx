@@ -240,7 +240,7 @@ export const PublicFormPage: React.FC = () => {
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase leading-none text-white drop-shadow-sm">
-            Incrição campeonato interno
+            Inscrição campeonato interno
           </h1>
           <p className="text-blue-100 text-sm sm:text-base mt-2.5 max-w-md font-medium">
             Para se inscrever preencha seus dados abaixo e realize o pagamento da camiseta.
