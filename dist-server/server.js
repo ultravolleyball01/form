@@ -381,7 +381,7 @@ function ensureGeneralFormDefaults(source) {
         label: "Categoria da seletiva",
         description: "Selecione a categoria para filtrar os hor\xE1rios",
         field_type: "select",
-        placeholder: "Selecione Masculino ou Feminino...",
+        placeholder: "Selecione",
         required: true,
         active: true,
         sort_order: 6,
@@ -395,7 +395,7 @@ function ensureGeneralFormDefaults(source) {
         label: "Categoria da seletiva",
         description: "Selecione a categoria para filtrar os hor\xE1rios",
         field_type: "select",
-        placeholder: "Selecione Masculino ou Feminino...",
+        placeholder: "Selecione",
         required: true,
         active: true,
         sort_order: 6,
@@ -1468,7 +1468,7 @@ apiRouter.post("/registrations", registrationLimiter, (req, res) => {
         }
       }
       if (field.key === "selection_gender" && !["Masculino", "Feminino"].includes(valStr)) {
-        res.status(400).json({ error: "Selecione uma categoria v\xE1lida: Masculino ou Feminino." });
+        res.status(400).json({ error: "Selecione uma categoria." });
         return;
       }
       if (field.required && !valStr) {
