@@ -29,6 +29,7 @@ export interface ClassItem {
   level: string;
   weekday: string;
   start_time: string;
+  eligible_birth_years?: number[];
   active: boolean;
   sort_order: number;
   created_at: string;
@@ -61,6 +62,14 @@ export type FormFieldType =
   | 'class_selector'
   | 'shirt_size_selector';
 
+export type FormConditionOperator = 'equals' | 'greater_than_or_equal' | 'less_than_or_equal';
+
+export interface FormFieldCondition {
+  field_id: string;
+  operator: FormConditionOperator;
+  value: string;
+}
+
 export interface FormField {
   id: string;
   key: string;
@@ -72,9 +81,27 @@ export interface FormField {
   active: boolean;
   sort_order: number;
   options?: string[]; // For select, radio, checkbox
+  show_when?: FormFieldCondition | null;
   system_type?: 'full_name' | 'class_id' | 'shirt_size_id';
   created_at: string;
   updated_at: string;
+}
+
+export interface FormAppearance {
+  eyebrow: string;
+  title: string;
+  description: string;
+  primary_logo_url: string;
+  secondary_logo_url: string;
+  header_banner_url: string;
+  submit_label: string;
+  success_title: string;
+  success_description: string;
+  payment_enabled: boolean;
+  maps_enabled: boolean;
+  maps_api_key: string;
+  location_bsc_address: string;
+  location_colegio_address: string;
 }
 
 export interface Registration {
@@ -145,6 +172,7 @@ export interface RegistrationWithDetails extends Registration {
 
 export interface PublicFormConfig {
   shirt_price: number;
+  appearance: FormAppearance;
   form_fields: FormField[];
   classes: ClassItem[];
   shirt_sizes: ShirtSize[];

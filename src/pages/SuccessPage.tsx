@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { api } from '../lib/api';
+import type { FormAppearance } from '../types';
 import {
   CheckCircle2,
   Copy,
@@ -19,6 +20,7 @@ export const SuccessPage: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [appearance, setAppearance] = useState<FormAppearance | null>(null);
 
   useEffect(() => {
     // Launch celebratory confetti explosion!
@@ -37,8 +39,9 @@ export const SuccessPage: React.FC = () => {
     const orderNsu = params.get('order_nsu') || '';
     const code = params.get('code') || '';
 
+    void api.getPublicConfig().then((config) => setAppearance(config.appearance)).catch(() => undefined);
     if (orderNsu || code) {
-      loadDetails(orderNsu, code);
+      void loadDetails(orderNsu, code);
     } else {
       setLoading(false);
     }
@@ -79,17 +82,18 @@ export const SuccessPage: React.FC = () => {
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900">
-              Inscrição confirmada!
+              {appearance?.success_title || 'Inscrição confirmada!'}
             </h1>
 
-            {/* Badges strictly required by Rule 50 */}
+            <p className="text-sm text-slate-500 mt-2 max-w-md">
+              {appearance?.success_description || 'Seu cadastro foi recebido com sucesso.'}
+            </p>
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-3">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                <Check className="w-3.5 h-3.5 stroke-[3]" /> Pagamento confirmado
+                <Check className="w-3.5 h-3.5 stroke-[3]" /> Cadastro confirmado
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800 border border-blue-200">
-                <Check className="w-3.5 h-3.5 stroke-[3]" /> Camiseta solicitada com sucesso
-              </span>
+              {data?.amount > 0 && <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800 border border-blue-200"><Check className="w-3.5 h-3.5 stroke-[3]" /> Pagamento confirmado</span>}
             </div>
           </div>
 
@@ -118,7 +122,7 @@ export const SuccessPage: React.FC = () => {
           {/* Detailed Receipt Card (Rule 50) */}
           <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-3.5 text-sm">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-2">
-              Detalhes da Inscrição e Pedido
+              Detalhes da inscrição
             </h3>
 
             <div className="flex items-start justify-between">
@@ -128,14 +132,14 @@ export const SuccessPage: React.FC = () => {
               <strong className="text-slate-900 text-right">{data?.participant_name || 'Participante'}</strong>
             </div>
 
-            <div className="flex items-start justify-between">
+            {data?.class_label && <div className="flex items-start justify-between">
               <span className="text-slate-500 text-xs">Unidade / Turma:</span>
               <span className="text-slate-800 font-semibold text-right max-w-[260px]">
                 {data?.class_label || 'Turma Selecionada'}
               </span>
-            </div>
+            </div>}
 
-            <div className="flex items-start justify-between">
+            {data?.shirt_size_code && <div className="flex items-start justify-between">
               <span className="text-slate-500 text-xs flex items-center gap-1.5">
                 <Shirt className="w-3.5 h-3.5 text-slate-400" /> Camiseta:
               </span>
@@ -147,7 +151,7 @@ export const SuccessPage: React.FC = () => {
                   ({data?.shirt_category === 'adult' ? 'Adulto' : 'Infantil'})
                 </span>
               </span>
-            </div>
+            </div>}
 
             {data?.width_cm && data?.length_cm && (
               <div className="flex items-start justify-between">
@@ -158,19 +162,19 @@ export const SuccessPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-start justify-between">
+            {data?.shirt_size_code && <div className="flex items-start justify-between">
               <span className="text-slate-500 text-xs">Quantidade:</span>
               <span className="font-bold text-slate-900">1 camiseta oficial</span>
-            </div>
+            </div>}
 
-            <div className="flex items-start justify-between pt-2 border-t border-slate-200">
+            {data?.amount > 0 && <div className="flex items-start justify-between pt-2 border-t border-slate-200">
               <span className="text-slate-500 text-xs flex items-center gap-1.5">
                 <DollarSign className="w-3.5 h-3.5 text-slate-400" /> Valor Pago:
               </span>
               <strong className="text-emerald-700 font-black text-base">
                 {data?.amount ? `R$ ${(data.amount / 100).toFixed(2).replace('.', ',')}` : 'R$ 70,00'}
               </strong>
-            </div>
+            </div>}
 
             {data?.paid_at && (
               <div className="flex items-start justify-between">
@@ -221,7 +225,7 @@ export const SuccessPage: React.FC = () => {
 
         {/* Security badge */}
         <div className="text-center text-xs text-slate-400">
-          <p>Dúvidas sobre a entrega ou confecção das camisetas? Fale com a coordenação da sua unidade Ultra Volleyball.</p>
+          <p>Em caso de dúvidas, fale com a equipe Ultra Volleyball.</p>
         </div>
       </div>
     </div>

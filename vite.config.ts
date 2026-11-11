@@ -18,5 +18,12 @@ export default defineConfig(() => {
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
+    // The Rolldown dependency optimizer can stall indefinitely on some
+    // Windows installations. Every browser dependency used by this app
+    // exposes an ESM build, so they can be transformed on demand instead.
+    optimizeDeps: {
+      noDiscovery: true,
+      include: [],
+    },
   };
 });

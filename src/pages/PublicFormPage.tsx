@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '../lib/api';
-import type { PublicFormConfig, FormField } from '../types';
+import type { PublicFormConfig, FormField, FormAppearance, ClassItem } from '../types';
 import { DynamicFieldRenderer } from '../components/DynamicFieldRenderer';
 import { SizeGuideModal } from '../components/SizeGuideModal';
 import {
@@ -11,6 +11,8 @@ import {
   ChevronRight,
   AlertCircle,
   HelpCircle,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react';
 
 const PENDING_CHECKOUT_KEY = 'ultra_pending_checkout_v1';
@@ -47,6 +49,17 @@ function clearPendingCheckout(): void {
   }
 }
 
+function isFieldVisible(field: FormField, answers: Record<string, any>): boolean {
+  if (!field.show_when) return true;
+  const sourceValue = answers[field.show_when.field_id];
+  if (sourceValue === undefined || sourceValue === null || sourceValue === '') return false;
+  if (field.show_when.operator === 'equals') return String(sourceValue) === field.show_when.value;
+  const actual = Number(sourceValue);
+  const expected = Number(field.show_when.value);
+  if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false;
+  return field.show_when.operator === 'greater_than_or_equal' ? actual >= expected : actual <= expected;
+}
+
 export const PublicFormPage: React.FC = () => {
   const pendingCheckoutRef = useRef<PendingCheckout | undefined>(undefined);
   const [config, setConfig] = useState<PublicFormConfig | null>(null);
@@ -68,6 +81,22 @@ export const PublicFormPage: React.FC = () => {
     loadConfig();
   }, []);
 
+  const birthYearFieldId = config?.form_fields.find((field) => field.key === 'birth_year')?.id;
+  const birthYearValue = birthYearFieldId ? String(dynamicAnswers[birthYearFieldId] || '') : '';
+  const genderFieldId = config?.form_fields.find((field) => field.key === 'selection_gender')?.id;
+  const selectedGenderValue = genderFieldId ? String(dynamicAnswers[genderFieldId] || '') : '';
+
+  useEffect(() => {
+    if (!config || !classId || !birthYearValue || !selectedGenderValue) return;
+    const selected = config.classes.find((item) => item.id === classId);
+    const year = Number(birthYearValue);
+    const matchesYear = !selected?.eligible_birth_years?.length || selected.eligible_birth_years.includes(year);
+    const matchesGender = Boolean(selected?.gender.toUpperCase().includes(selectedGenderValue.toUpperCase()));
+    if (!matchesYear || !matchesGender) {
+      setClassId('');
+    }
+  }, [birthYearValue, selectedGenderValue, classId, config]);
+
   const loadConfig = async () => {
     try {
       setLoading(true);
@@ -83,23 +112,39 @@ export const PublicFormPage: React.FC = () => {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!fullName.trim() || fullName.trim().length < 3) {
-      errors.full_name = 'Por favor, informe seu nome completo (mínimo 3 letras).';
-    }
-
-    if (!classId) {
-      errors.class_id = 'Por favor, selecione sua unidade e turma.';
-    }
-
-    if (!shirtSizeId) {
-      errors.shirt_size_id = 'Por favor, selecione o tamanho da camiseta.';
-    }
-
     if (config?.form_fields) {
       for (const field of config.form_fields) {
+        if (!isFieldVisible(field, dynamicAnswers)) continue;
+        if (field.system_type === 'full_name' && field.required && fullName.trim().length < 3) {
+          errors.full_name = 'Por favor, informe seu nome completo (mínimo 3 letras).';
+          continue;
+        }
+        if (field.system_type === 'class_id' && field.required && !classId) {
+          errors.class_id = `O campo "${field.label}" é obrigatório.`;
+          continue;
+        }
+        if (field.system_type === 'shirt_size_id' && field.required && !shirtSizeId) {
+          errors.shirt_size_id = `O campo "${field.label}" é obrigatório.`;
+          continue;
+        }
         if (field.system_type) continue;
+        const rawValue = dynamicAnswers[field.id];
+        if (field.key === 'rg' && rawValue) {
+          const digits = String(rawValue).replace(/\D/g, '');
+          if (digits.length < 7 || digits.length > 14) {
+            errors[field.id] = 'Informe um RG válido com 7 a 14 números.';
+            continue;
+          }
+        }
+        if (field.key === 'birth_year' && rawValue) {
+          const year = Number(rawValue);
+          if (!Number.isInteger(year) || year < 2009 || year > 2018) {
+            errors[field.id] = 'As seletivas são destinadas a atletas nascidos entre 2009 e 2018.';
+            continue;
+          }
+        }
         if (field.required) {
-          const val = dynamicAnswers[field.id];
+          const val = rawValue;
           if (
             val === undefined ||
             val === null ||
@@ -156,6 +201,12 @@ export const PublicFormPage: React.FC = () => {
         });
         pending.registrationId = regResponse.registration.id;
         writePendingCheckout(pending);
+        if (!regResponse.requires_payment) {
+          pendingCheckoutRef.current = undefined;
+          clearPendingCheckout();
+          window.location.assign(`/inscricao/sucesso?code=${encodeURIComponent(regResponse.registration.public_code)}`);
+          return;
+        }
       }
       const registrationId = pending.registrationId;
       if (!registrationId) throw new Error('Não foi possível identificar a inscrição criada.');
@@ -233,24 +284,29 @@ export const PublicFormPage: React.FC = () => {
       <header className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-blue-950 text-white overflow-hidden border-b border-blue-700/50">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fbbf24_1px,transparent_1px)] [background-size:16px_16px]"></div>
         <div className="max-w-2xl mx-auto px-4 py-8 relative z-10 flex flex-col items-center text-center">
-          {/* Volleyball Sport Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-amber-300 text-xs font-extrabold uppercase tracking-widest mb-4 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            ULTRA VOLLEYBALL
-          </div>
+          {config.appearance.header_banner_url && (
+            <div className="w-full h-52 sm:h-64 rounded-3xl overflow-hidden border border-white/20 shadow-2xl mb-6 bg-blue-950">
+              <img
+                src={config.appearance.header_banner_url}
+                alt="Ultra Volleyball e Batalha - Seletivas 2027"
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+          )}
+          {(config.appearance.primary_logo_url || config.appearance.secondary_logo_url) && (
+            <div className="flex items-center justify-center gap-5 mb-5">
+              {config.appearance.primary_logo_url && <img src={config.appearance.primary_logo_url} alt="Logo principal" className="max-h-16 max-w-[180px] object-contain" />}
+              {config.appearance.secondary_logo_url && <img src={config.appearance.secondary_logo_url} alt="Logo secundário" className="max-h-14 max-w-[150px] object-contain" />}
+            </div>
+          )}
+          {config.appearance.eyebrow && <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-amber-300 text-xs font-extrabold uppercase tracking-widest mb-4 shadow-sm"><span className="w-2 h-2 rounded-full bg-amber-400"></span>{config.appearance.eyebrow}</div>}
 
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase leading-none text-white drop-shadow-sm">
-            Inscrição campeonato interno
+            {config.appearance.title}
           </h1>
           <p className="text-blue-100 text-sm sm:text-base mt-2.5 max-w-md font-medium">
-            Para se inscrever preencha seus dados abaixo e realize o pagamento da camiseta.
+            {config.appearance.description}
           </p>
-
-          <div className="mt-4 flex items-center gap-4 text-xs text-blue-200">
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-amber-400" /> Tecido Dry Esportivo Premium
-            </span>
-           </div>
         </div>
       </header>
 
@@ -270,6 +326,7 @@ export const PublicFormPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Dynamic Form Questions loaded from DB in sort_order */}
             {config.form_fields.map((field) => {
+              if (!isFieldVisible(field, dynamicAnswers)) return null;
               if (field.system_type === 'full_name') {
                 return (
                   <DynamicFieldRenderer
@@ -284,14 +341,18 @@ export const PublicFormPage: React.FC = () => {
 
               if (field.system_type === 'class_id') {
                 return (
-                  <DynamicFieldRenderer
-                    key={field.id}
-                    field={field}
-                    value={classId}
-                    onChange={setClassId}
-                    classes={config.classes}
-                    error={fieldErrors.class_id}
-                  />
+                  <React.Fragment key={field.id}>
+                    <DynamicFieldRenderer
+                      field={field}
+                      value={classId}
+                      onChange={setClassId}
+                      classes={config.classes}
+                      birthYear={birthYearValue}
+                      selectedGender={selectedGenderValue}
+                      error={fieldErrors.class_id}
+                    />
+                    {selectedClass && <LocationPreview selectedClass={selectedClass} appearance={config.appearance} />}
+                  </React.Fragment>
                 );
               }
 
@@ -326,8 +387,7 @@ export const PublicFormPage: React.FC = () => {
               );
             })}
 
-            {/* ORDER SUMMARY (Rule 1 & Rule 26: Checkout is structural, exactly 1 shirt, no quantity edit) */}
-            <div className="pt-4 border-t border-slate-200">
+            {config.appearance.payment_enabled && <div className="pt-4 border-t border-slate-200">
               <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
                   <span>Resumo do Pedido</span>
@@ -336,7 +396,7 @@ export const PublicFormPage: React.FC = () => {
 
                 <div className="flex items-center justify-between py-2 border-b border-slate-200 text-sm">
                   <div>
-                    <p className="font-bold text-slate-900">Camiseta Campeonato Interno Ultra Volleyball</p>
+                    <p className="font-bold text-slate-900">Camiseta Ultra Volleyball</p>
                     <p className="text-xs text-slate-500">
                       {selectedSize ? `Tamanho: ${selectedSize.code} (${selectedSize.category === 'adult' ? 'Adulto' : 'Infantil'})` : 'Tamanho a definir'}
                       {selectedClass ? ` • ${selectedClass.unit}` : ''}
@@ -364,7 +424,7 @@ export const PublicFormPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div>}
 
             {/* CTA Button */}
             <div className="space-y-3 pt-2">
@@ -380,11 +440,11 @@ export const PublicFormPage: React.FC = () => {
                 {submitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Gerando pagamento...</span>
+                    <span>Enviando cadastro...</span>
                   </>
                 ) : (
                   <>
-                    <span>Pagar {formattedPrice}</span>
+                    <span>{config.appearance.payment_enabled ? `Pagar ${formattedPrice}` : config.appearance.submit_label}</span>
                     <ChevronRight className="w-5 h-5 stroke-[3]" />
                   </>
                 )}
@@ -392,12 +452,9 @@ export const PublicFormPage: React.FC = () => {
 
               <div className="flex items-center justify-center gap-4 text-xs text-slate-400 font-medium">
                 <span className="flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5 text-slate-400" /> Ambiente Criptografado
+                  <Lock className="w-3.5 h-3.5 text-slate-400" /> Dados enviados com segurança
                 </span>
-                <span>•</span>
-                <span>PIX Instantâneo & Cartão</span>
-                <span>•</span>
-                <span>Sem taxa adicional</span>
+                {config.appearance.payment_enabled && <><span>•</span><span>PIX & Cartão</span></>}
               </div>
             </div>
           </form>
@@ -425,6 +482,55 @@ export const PublicFormPage: React.FC = () => {
         selectedSizeId={shirtSizeId}
         onSelectSize={(id) => setShirtSizeId(id)}
       />
+    </div>
+  );
+};
+
+const LocationPreview: React.FC<{ selectedClass: ClassItem; appearance: FormAppearance }> = ({
+  selectedClass,
+  appearance,
+}) => {
+  const isBsc = selectedClass.unit.toUpperCase().includes('BSC');
+  const address = isBsc ? appearance.location_bsc_address : appearance.location_colegio_address;
+  const mapsUrl = address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : '';
+  const embedUrl = address && appearance.maps_api_key
+    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(appearance.maps_api_key)}&q=${encodeURIComponent(address)}`
+    : '';
+
+  return (
+    <div className="rounded-2xl border border-blue-200 bg-blue-50/70 overflow-hidden">
+      <div className="p-4 flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-blue-700 text-white flex items-center justify-center shrink-0">
+          <MapPin className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-extrabold text-blue-950">Local: {selectedClass.unit}</p>
+          {address ? (
+            <>
+              <p className="text-xs text-blue-800 mt-0.5">{address}</p>
+              <a href={mapsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-blue-700 underline">
+                Ver rota no Google Maps <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </>
+          ) : (
+            <p className="text-xs text-blue-700 mt-0.5">
+              Integração com o Google Maps preparada. O endereço será exibido assim que for configurado.
+            </p>
+          )}
+        </div>
+      </div>
+      {appearance.maps_enabled && embedUrl && (
+        <iframe
+          title={`Mapa do local ${selectedClass.unit}`}
+          src={embedUrl}
+          className="w-full h-64 border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
+      )}
     </div>
   );
 };

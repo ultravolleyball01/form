@@ -10,6 +10,7 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
   const isProd = process.env.NODE_ENV === 'production';
+  const staticMode = isProd || process.argv.includes('--static');
 
   if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
     throw new Error('PORT deve ser um número inteiro entre 1 e 65535');
@@ -29,7 +30,7 @@ async function startServer() {
   app.use('/api', apiRouter);
 
   // Serve frontend
-  if (!isProd) {
+  if (!staticMode) {
     const { createServer } = await import('vite');
     const vite = await createServer({
       server: { middlewareMode: true },
@@ -45,7 +46,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Ultra Volleyball Server] Running on http://0.0.0.0:${PORT}`);
+    console.log(`[Ultra Volleyball Server] Abra no navegador: http://localhost:${PORT}`);
   });
 }
 

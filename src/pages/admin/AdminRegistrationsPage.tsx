@@ -346,12 +346,8 @@ export const AdminRegistrationsPage: React.FC = () => {
               <tr>
                 <th className="py-3 px-4">Código</th>
                 <th className="py-3 px-4">Nome do Inscrito</th>
-                <th className="py-3 px-4">Unidade / Turma</th>
-                <th className="py-3 px-4">Tamanho</th>
-                <th className="py-3 px-4">Categoria</th>
-                <th className="py-3 px-4">Valor</th>
+                <th className="py-3 px-4">Local / Horário</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Pagamento</th>
                 <th className="py-3 px-4">Data</th>
                 <th className="py-3 px-4 text-center">Ação</th>
               </tr>
@@ -359,14 +355,14 @@ export const AdminRegistrationsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
                     Carregando inscrições...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     Nenhuma inscrição encontrada para os filtros selecionados.
                   </td>
                 </tr>
@@ -380,24 +376,10 @@ export const AdminRegistrationsPage: React.FC = () => {
                       {r.participant_name}
                     </td>
                     <td className="py-3 px-4 text-slate-600 max-w-[220px] truncate" title={r.class_label_snapshot}>
-                      {r.class_label_snapshot}
-                    </td>
-                    <td className="py-3 px-4 font-black text-slate-800">
-                      {r.shirt_size_code_snapshot}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      {r.shirt_category_snapshot === 'adult' ? 'Adulto' : 'Infantil'}
-                    </td>
-                    <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap">
-                      R$ {(r.amount / 100).toFixed(2).replace('.', ',')}
+                      {r.class_label_snapshot || 'Não informado'}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {getStatusBadge(r.status)}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="text-slate-700 capitalize font-medium">
-                        {r.payment_status === 'paid' ? 'Pago' : r.payment_status}
-                      </span>
                     </td>
                     <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
                       {new Date(r.created_at).toLocaleString('pt-BR')}

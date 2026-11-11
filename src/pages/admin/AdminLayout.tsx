@@ -48,7 +48,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, children 
     { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { label: 'Inscrições', path: '/admin/inscricoes', icon: ClipboardList },
     { label: 'Formulário', path: '/admin/formulario', icon: FormInput },
-    { label: 'Turmas', path: '/admin/turmas', icon: Users },
+    { label: 'Locais e horários', path: '/admin/turmas', icon: Users },
     { label: 'Tamanhos', path: '/admin/tamanhos', icon: Ruler },
     { label: 'Camisetas', path: '/admin/camisas', icon: Shirt },
     { label: 'Configurações', path: '/admin/configuracoes', icon: Settings },
@@ -96,7 +96,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, children 
               Ultra Volley
             </h2>
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mt-0.5 block">
-              Gestão de Camisetas
+              Gestão de Formulários
             </span>
           </div>
         </div>

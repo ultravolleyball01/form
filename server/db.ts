@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import type {
   AdminUser,
   ClassItem,
+  FormAppearance,
   FormField,
   Payment,
   Registration,
@@ -64,6 +65,25 @@ const INITIAL_CLASSES: Omit<ClassItem, 'id' | 'created_at' | 'updated_at'>[] = [
   { display_label: 'UNIDADE VILA RÉ - MISTO QUINTA 20HS', unit: 'VILA RÉ', category: 'ADULTO', gender: 'MISTO', level: 'GERAL', weekday: 'QUINTA', start_time: '20:00', active: true, sort_order: 22 },
 ];
 
+const SELECTION_SCHEDULE: Omit<ClassItem, 'id' | 'created_at' | 'updated_at'>[] = [
+  { display_label: '08/dez • 20:30 às 22:00 • FEMININO SUB 17/19 • COLÉGIO', unit: 'COLÉGIO', category: 'SUB 17/19', gender: 'FEMININO', level: 'SELETIVA', weekday: '08/dez', start_time: '20:30–22:00', eligible_birth_years: [2009, 2010, 2011, 2012], active: true, sort_order: 1 },
+  { display_label: '09/dez • 15:00 às 16:30 • FEMININO SUB 13 • BSC', unit: 'BSC', category: 'SUB 13', gender: 'FEMININO', level: 'SELETIVA', weekday: '09/dez', start_time: '15:00–16:30', eligible_birth_years: [2015, 2016], active: true, sort_order: 2 },
+  { display_label: '09/dez • 16:30 às 18:00 • FEMININO SUB 15 • BSC', unit: 'BSC', category: 'SUB 15', gender: 'FEMININO', level: 'SELETIVA', weekday: '09/dez', start_time: '16:30–18:00', eligible_birth_years: [2013, 2014], active: true, sort_order: 3 },
+  { display_label: '09/dez • 19:00 às 20:30 • MASCULINO SUB 17 • COLÉGIO', unit: 'COLÉGIO', category: 'SUB 17', gender: 'MASCULINO', level: 'SELETIVA', weekday: '09/dez', start_time: '19:00–20:30', eligible_birth_years: [2011, 2012], active: true, sort_order: 4 },
+  { display_label: '09/dez • 20:30 às 22:00 • MASCULINO SUB 19 • COLÉGIO', unit: 'COLÉGIO', category: 'SUB 19', gender: 'MASCULINO', level: 'SELETIVA', weekday: '09/dez', start_time: '20:30–22:00', eligible_birth_years: [2009, 2010], active: true, sort_order: 5 },
+  { display_label: '11/dez • 09:30 às 11:00 • FEMININO/MASCULINO SUB 11 • BSC', unit: 'BSC', category: 'SUB 11', gender: 'FEMININO/MASCULINO', level: 'SELETIVA', weekday: '11/dez', start_time: '09:30–11:00', eligible_birth_years: [2017, 2018], active: true, sort_order: 6 },
+  { display_label: '11/dez • 13:30 às 15:00 • MASCULINO SUB 13 • BSC', unit: 'BSC', category: 'SUB 13', gender: 'MASCULINO', level: 'SELETIVA', weekday: '11/dez', start_time: '13:30–15:00', eligible_birth_years: [2015, 2016], active: true, sort_order: 7 },
+  { display_label: '11/dez • 15:00 às 16:30 • MASCULINO SUB 15 • BSC', unit: 'BSC', category: 'SUB 15', gender: 'MASCULINO', level: 'SELETIVA', weekday: '11/dez', start_time: '15:00–16:30', eligible_birth_years: [2013, 2014], active: true, sort_order: 8 },
+  { display_label: '11/dez • 16:30 às 18:00 • FEMININO SUB 15 • BSC', unit: 'BSC', category: 'SUB 15', gender: 'FEMININO', level: 'SELETIVA', weekday: '11/dez', start_time: '16:30–18:00', eligible_birth_years: [2013, 2014], active: true, sort_order: 9 },
+  { display_label: '14/dez • 15:00 às 16:30 • MASCULINO SUB 13 • BSC', unit: 'BSC', category: 'SUB 13', gender: 'MASCULINO', level: 'SELETIVA', weekday: '14/dez', start_time: '15:00–16:30', eligible_birth_years: [2015, 2016], active: true, sort_order: 10 },
+  { display_label: '15/dez • 20:30 às 22:00 • FEMININO SUB 17/19 • COLÉGIO', unit: 'COLÉGIO', category: 'SUB 17/19', gender: 'FEMININO', level: 'SELETIVA', weekday: '15/dez', start_time: '20:30–22:00', eligible_birth_years: [2009, 2010, 2011, 2012], active: true, sort_order: 11 },
+  { display_label: '16/dez • 08:00 às 09:30 • FEMININO/MASCULINO SUB 11 • BSC', unit: 'BSC', category: 'SUB 11', gender: 'FEMININO/MASCULINO', level: 'SELETIVA', weekday: '16/dez', start_time: '08:00–09:30', eligible_birth_years: [2017, 2018], active: true, sort_order: 12 },
+  { display_label: '16/dez • 15:00 às 16:30 • FEMININO SUB 13 • BSC', unit: 'BSC', category: 'SUB 13', gender: 'FEMININO', level: 'SELETIVA', weekday: '16/dez', start_time: '15:00–16:30', eligible_birth_years: [2015, 2016], active: true, sort_order: 13 },
+  { display_label: '16/dez • 16:30 às 18:00 • MASCULINO SUB 15 • BSC', unit: 'BSC', category: 'SUB 15', gender: 'MASCULINO', level: 'SELETIVA', weekday: '16/dez', start_time: '16:30–18:00', eligible_birth_years: [2013, 2014], active: true, sort_order: 14 },
+  { display_label: '16/dez • 19:00 às 20:30 • MASCULINO SUB 17 • COLÉGIO', unit: 'COLÉGIO', category: 'SUB 17', gender: 'MASCULINO', level: 'SELETIVA', weekday: '16/dez', start_time: '19:00–20:30', eligible_birth_years: [2011, 2012], active: true, sort_order: 15 },
+  { display_label: '16/dez • 20:30 às 22:00 • MASCULINO SUB 19 • COLÉGIO', unit: 'COLÉGIO', category: 'SUB 19', gender: 'MASCULINO', level: 'SELETIVA', weekday: '16/dez', start_time: '20:30–22:00', eligible_birth_years: [2009, 2010], active: true, sort_order: 16 },
+];
+
 const INITIAL_SHIRT_SIZES: Omit<ShirtSize, 'id' | 'created_at' | 'updated_at'>[] = [
   // Adulto
   { code: 'G5', name: 'G5 Adulto', width_cm: 71.5, length_cm: 94, category: 'adult', active: true, sort_order: 1 },
@@ -120,6 +140,265 @@ const INITIAL_FORM_FIELDS: Omit<FormField, 'id' | 'created_at' | 'updated_at'>[]
   },
 ];
 
+const FORM_SETTING_DEFAULTS: Record<string, string> = {
+  form_eyebrow: 'PENEIRA ULTRA VOLLEYBALL',
+  form_title: 'Seleção de atletas',
+  form_description:
+    'Cadastre-se para participar da peneira. Escolha o local e o horário disponíveis e conte um pouco sobre sua experiência no vôlei.',
+  form_primary_logo_url: '',
+  form_secondary_logo_url: '',
+  form_header_banner_url: '/assets/seletivas-batalha-2027.png',
+  form_submit_label: 'Confirmar inscrição',
+  form_success_title: 'Inscrição recebida!',
+  form_success_description:
+    'Seu cadastro para a peneira foi realizado. Guarde o código da inscrição e aguarde as orientações da equipe Ultra.',
+  form_payment_enabled: 'false',
+  form_maps_enabled: 'false',
+  form_maps_api_key: '',
+  form_location_bsc_address: '',
+  form_location_colegio_address: '',
+};
+
+function ensureGeneralFormDefaults(source: DatabaseSchema): DatabaseSchema {
+  const data = structuredClone(source);
+  const now = new Date().toISOString();
+  const getSetting = (key: string) => data.system_settings.find((item) => item.key === key);
+  const addSetting = (key: string, value: string) => {
+    if (!getSetting(key)) {
+      data.system_settings.push({ id: generateUUID(), key, value, updated_at: now });
+    }
+  };
+  const setSetting = (key: string, value: string) => {
+    const existing = getSetting(key);
+    if (existing) {
+      existing.value = value;
+      existing.updated_at = now;
+    } else {
+      addSetting(key, value);
+    }
+  };
+
+  Object.entries(FORM_SETTING_DEFAULTS).forEach(([key, value]) => addSetting(key, value));
+
+  if (!getSetting('general_form_version')) {
+    const fullName = data.form_fields.find((field) => field.key === 'full_name');
+    if (fullName) {
+      fullName.label = 'Nome completo do(a) atleta';
+      fullName.description = 'Use o nome completo que consta no documento';
+      fullName.placeholder = 'Ex: Ana Carolina Silva';
+      fullName.active = true;
+      fullName.required = true;
+      fullName.sort_order = 1;
+      fullName.updated_at = now;
+    }
+
+    const classField = data.form_fields.find((field) => field.key === 'class_id');
+    if (classField) {
+      classField.label = 'Local e horário da peneira';
+      classField.description = 'Escolha uma das opções disponíveis para participar da seleção';
+      classField.placeholder = 'Selecione o local e o horário...';
+      classField.active = true;
+      classField.required = true;
+      classField.sort_order = 6;
+      classField.updated_at = now;
+    }
+
+    const shirtField = data.form_fields.find((field) => field.key === 'shirt_size_id');
+    if (shirtField) {
+      shirtField.active = false;
+      shirtField.required = false;
+      shirtField.sort_order = 90;
+      shirtField.updated_at = now;
+    }
+
+    const ensureField = (
+      key: string,
+      input: Omit<FormField, 'id' | 'key' | 'created_at' | 'updated_at'>
+    ): FormField => {
+      const existing = data.form_fields.find((field) => field.key === key);
+      if (existing) return existing;
+      const created: FormField = {
+        ...input,
+        id: generateUUID(),
+        key,
+        created_at: now,
+        updated_at: now,
+      };
+      data.form_fields.push(created);
+      return created;
+    };
+
+    const birthYear = ensureField('birth_year', {
+      label: 'Ano de nascimento',
+      description: 'Informe os quatro dígitos do ano de nascimento',
+      field_type: 'number',
+      placeholder: 'Ex: 2008',
+      required: true,
+      active: true,
+      sort_order: 2,
+    });
+
+    ensureField('guardian_name', {
+      label: 'Nome completo do responsável',
+      description: 'Exibido para atletas nascidos em 2009 ou depois',
+      field_type: 'text',
+      placeholder: 'Nome do pai, mãe ou responsável legal',
+      required: true,
+      active: true,
+      sort_order: 3,
+      show_when: {
+        field_id: birthYear.id,
+        operator: 'greater_than_or_equal',
+        value: '2009',
+      },
+    });
+
+    ensureField('phone', {
+      label: 'WhatsApp para contato',
+      description: 'Inclua o DDD',
+      field_type: 'phone',
+      placeholder: '(11) 99999-9999',
+      required: true,
+      active: true,
+      sort_order: 4,
+    });
+
+    ensureField('email', {
+      label: 'E-mail',
+      description: 'Usaremos este e-mail para comunicações sobre a peneira',
+      field_type: 'email',
+      placeholder: 'voce@exemplo.com',
+      required: true,
+      active: true,
+      sort_order: 5,
+    });
+
+    ensureField('volleyball_experience', {
+      label: 'Experiência com vôlei',
+      description: 'Conte onde já jogou, por quanto tempo e sua posição preferida',
+      field_type: 'textarea',
+      placeholder: 'Ex: jogo há 3 anos como ponteiro...',
+      required: false,
+      active: true,
+      sort_order: 7,
+    });
+
+    data.form_fields
+      .filter((field) => !['full_name', 'birth_year', 'guardian_name', 'phone', 'email', 'class_id', 'volleyball_experience', 'shirt_size_id'].includes(field.key))
+      .forEach((field, index) => {
+        field.sort_order = 20 + index;
+      });
+
+    addSetting('general_form_version', '1');
+  }
+
+  if (Number(getSetting('selection_schedule_version')?.value || '0') < 2) {
+    const ensureSelectionField = (
+      key: string,
+      input: Omit<FormField, 'id' | 'key' | 'created_at' | 'updated_at'>
+    ): FormField => {
+      const existing = data.form_fields.find((field) => field.key === key);
+      if (existing) {
+        Object.assign(existing, input, { updated_at: now });
+        return existing;
+      }
+      const created: FormField = { ...input, id: generateUUID(), key, created_at: now, updated_at: now };
+      data.form_fields.push(created);
+      return created;
+    };
+
+    ensureSelectionField('full_name', {
+      label: 'Nome completo do(a) atleta', description: 'Informe como consta no documento', field_type: 'text',
+      placeholder: 'Ex: Ana Carolina Silva', required: true, active: true, sort_order: 1, system_type: 'full_name',
+    });
+    ensureSelectionField('guardian_name', {
+      label: 'Nome completo do responsável', description: 'Responsável legal pelo(a) atleta', field_type: 'text',
+      placeholder: 'Nome do pai, mãe ou responsável', required: true, active: true, sort_order: 2, show_when: null,
+    });
+    ensureSelectionField('phone', {
+      label: 'WhatsApp para contato', description: 'Inclua o DDD', field_type: 'phone',
+      placeholder: '(11) 99999-9999', required: true, active: true, sort_order: 3,
+    });
+    ensureSelectionField('rg', {
+      label: 'RG do(a) atleta', description: 'Uso exclusivo desta inscrição; será permitido apenas um cadastro por RG', field_type: 'text',
+      placeholder: 'Digite somente números', required: true, active: true, sort_order: 4,
+    });
+    ensureSelectionField('birth_year', {
+      label: 'Ano de nascimento', description: 'Os horários disponíveis serão filtrados automaticamente', field_type: 'number',
+      placeholder: 'Ex: 2014', required: true, active: true, sort_order: 5,
+    });
+    ensureSelectionField('class_id', {
+      label: 'Dia e horário da seletiva', description: 'Exibimos apenas as opções permitidas para o ano de nascimento informado',
+      field_type: 'class_selector', placeholder: 'Selecione um dia e horário...', required: true,
+      active: true, sort_order: 6, system_type: 'class_id',
+    });
+
+    data.form_fields.forEach((field) => {
+      if (!['full_name', 'guardian_name', 'phone', 'rg', 'birth_year', 'class_id'].includes(field.key)) {
+        field.active = false;
+        field.required = false;
+        field.updated_at = now;
+      }
+    });
+
+    data.classes = SELECTION_SCHEDULE.map((item) => ({
+      ...item, id: generateUUID(), created_at: now, updated_at: now,
+    }));
+
+    setSetting('form_eyebrow', 'TEMPORADA 2027 • SELETIVAS EM DEZEMBRO');
+    setSetting('form_title', 'Seletivas Batalha Ultra Volleyball');
+    setSetting('form_description', 'Preencha os dados do atleta. O sistema mostrará somente os dias e horários compatíveis com o ano de nascimento.');
+    setSetting('form_header_banner_url', '/assets/seletivas-batalha-2027.png');
+    setSetting('form_submit_label', 'Confirmar inscrição na seletiva');
+    setSetting('form_success_title', 'Inscrição na seletiva recebida!');
+    setSetting('form_success_description', 'Guarde seu código de inscrição e compareça no local escolhido com antecedência.');
+    setSetting('form_payment_enabled', 'false');
+    setSetting('selection_schedule_version', '2');
+  }
+
+  if (Number(getSetting('selection_schedule_version')?.value || '0') < 3) {
+    const existingGender = data.form_fields.find((field) => field.key === 'selection_gender');
+    if (existingGender) {
+      Object.assign(existingGender, {
+        label: 'Categoria da seletiva',
+        description: 'Selecione a categoria para filtrar os horários',
+        field_type: 'select' as const,
+        placeholder: 'Selecione Masculino ou Feminino...',
+        required: true,
+        active: true,
+        sort_order: 6,
+        options: ['Masculino', 'Feminino'],
+        updated_at: now,
+      });
+    } else {
+      data.form_fields.push({
+        id: generateUUID(),
+        key: 'selection_gender',
+        label: 'Categoria da seletiva',
+        description: 'Selecione a categoria para filtrar os horários',
+        field_type: 'select',
+        placeholder: 'Selecione Masculino ou Feminino...',
+        required: true,
+        active: true,
+        sort_order: 6,
+        options: ['Masculino', 'Feminino'],
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
+    const classField = data.form_fields.find((field) => field.key === 'class_id');
+    if (classField) {
+      classField.sort_order = 7;
+      classField.description = 'Exibimos apenas as opções permitidas para o ano de nascimento e a categoria informados';
+      classField.updated_at = now;
+    }
+    setSetting('selection_schedule_version', '3');
+  }
+
+  return data;
+}
+
 export function hashPassword(password: string): string {
   return bcrypt.hashSync(password, 12);
 }
@@ -157,7 +436,9 @@ class Database {
     if (!this.managedDatabase && fs.existsSync(DB_FILE)) {
       try {
         const content = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(content);
+        const upgraded = ensureGeneralFormDefaults(JSON.parse(content));
+        this.saveData(upgraded);
+        return upgraded;
       } catch (err) {
         console.error('Error reading db file, re-initializing...', err);
       }
@@ -216,10 +497,11 @@ class Database {
       ],
     };
 
+    const upgraded = ensureGeneralFormDefaults(seeded);
     if (!this.managedDatabase) {
-      this.saveData(seeded);
+      this.saveData(upgraded);
     }
-    return seeded;
+    return upgraded;
   }
 
   private saveData(data: DatabaseSchema): void {
@@ -251,7 +533,7 @@ class Database {
     if (!requiredCollections.every((key) => Array.isArray(data?.[key]))) {
       throw new Error('Estado persistido do sistema é inválido');
     }
-    this.data = structuredClone(data);
+    this.data = ensureGeneralFormDefaults(data);
   }
 
   // System settings
@@ -281,6 +563,28 @@ class Database {
     const val = this.getSetting('shirt_price', '7000');
     const parsed = parseInt(val, 10);
     return Number.isFinite(parsed) ? parsed : 7000;
+  }
+
+  public getFormAppearance(): FormAppearance {
+    return {
+      eyebrow: this.getSetting('form_eyebrow', FORM_SETTING_DEFAULTS.form_eyebrow),
+      title: this.getSetting('form_title', FORM_SETTING_DEFAULTS.form_title),
+      description: this.getSetting('form_description', FORM_SETTING_DEFAULTS.form_description),
+      primary_logo_url: this.getSetting('form_primary_logo_url', ''),
+      secondary_logo_url: this.getSetting('form_secondary_logo_url', ''),
+      header_banner_url: this.getSetting('form_header_banner_url', ''),
+      submit_label: this.getSetting('form_submit_label', FORM_SETTING_DEFAULTS.form_submit_label),
+      success_title: this.getSetting('form_success_title', FORM_SETTING_DEFAULTS.form_success_title),
+      success_description: this.getSetting(
+        'form_success_description',
+        FORM_SETTING_DEFAULTS.form_success_description
+      ),
+      payment_enabled: this.getSetting('form_payment_enabled', 'false') === 'true',
+      maps_enabled: this.getSetting('form_maps_enabled', 'false') === 'true',
+      maps_api_key: this.getSetting('form_maps_api_key', ''),
+      location_bsc_address: this.getSetting('form_location_bsc_address', ''),
+      location_colegio_address: this.getSetting('form_location_colegio_address', ''),
+    };
   }
 
   // Classes
@@ -464,6 +768,13 @@ class Database {
     return this.data.registrations.find(
       (r) => r.public_code.toLowerCase() === publicCode.toLowerCase()
     );
+  }
+
+  public findRegistrationByAnswer(fieldKey: string, value: string): Registration | undefined {
+    const answer = this.data.registration_answers.find(
+      (item) => item.field_key_snapshot === fieldKey && item.value === value
+    );
+    return answer ? this.getRegistrationById(answer.registration_id) : undefined;
   }
 
   public getRegistrations(): Registration[] {

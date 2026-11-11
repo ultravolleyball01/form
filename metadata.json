@@ -1,6 +1,6 @@
 {
-  "name": "Ultra Volleyball - Inscrição Campeonato Interno",
-  "description": "Sistema de inscrição e pagamento de camisetas da Ultra Volleyball com checkout InfinitePay e painel administrativo.",
+  "name": "Ultra Volleyball - Formulários",
+  "description": "Sistema geral de inscrições da Ultra Volleyball com formulários editáveis, perguntas condicionais e painel administrativo.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

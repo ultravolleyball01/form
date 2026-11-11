@@ -10,6 +10,8 @@ interface DynamicFieldRendererProps {
   shirtSizes?: ShirtSize[];
   onOpenSizeGuide?: () => void;
   error?: string;
+  birthYear?: string;
+  selectedGender?: string;
 }
 
 export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
@@ -20,6 +22,8 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
   shirtSizes = [],
   onOpenSizeGuide,
   error,
+  birthYear,
+  selectedGender,
 }) => {
   const [classSearch, setClassSearch] = useState('');
   const [sizeTab, setSizeTab] = useState<'adult' | 'child'>('adult');
@@ -52,8 +56,21 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
 
   // 2. System Field: CLASS SELECTOR
   if (field.system_type === 'class_id' || field.field_type === 'class_selector') {
-    const selectedClass = classes.find((c) => c.id === value);
-    const filteredClasses = classes.filter((c) =>
+    const parsedBirthYear = Number(birthYear);
+    const categoryByBirthYear: Record<number, string> = {
+      2009: 'SUB-19', 2010: 'SUB-19', 2011: 'SUB-17', 2012: 'SUB-17',
+      2013: 'SUB-15', 2014: 'SUB-15', 2015: 'SUB-13', 2016: 'SUB-13',
+      2017: 'SUB-11', 2018: 'SUB-11',
+    };
+    const eligibleClasses = Number.isInteger(parsedBirthYear)
+      ? classes.filter((item) => {
+          const matchesYear = !item.eligible_birth_years?.length || item.eligible_birth_years.includes(parsedBirthYear);
+          const matchesGender = Boolean(selectedGender) && item.gender.toUpperCase().includes(selectedGender!.toUpperCase());
+          return matchesYear && matchesGender;
+        })
+      : [];
+    const selectedClass = eligibleClasses.find((c) => c.id === value);
+    const filteredClasses = eligibleClasses.filter((c) =>
       c.display_label.toLowerCase().includes(classSearch.toLowerCase())
     );
 
@@ -77,7 +94,7 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
         {/* Selected badge / trigger */}
         <div className="relative">
           <div
-            onClick={() => setClassDropdownOpen(!classDropdownOpen)}
+            onClick={() => eligibleClasses.length > 0 && setClassDropdownOpen(!classDropdownOpen)}
             className={`w-full min-h-[52px] px-4 py-3 rounded-xl border bg-white flex items-center justify-between cursor-pointer transition-all ${
               classDropdownOpen
                 ? 'ring-2 ring-blue-600 border-transparent shadow-sm'
@@ -97,7 +114,11 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
               </div>
             ) : (
               <span className="text-slate-400 text-sm">
-                {field.placeholder || 'Clique para selecionar sua turma...'}
+                {!birthYear || !selectedGender
+                  ? 'Informe o ano de nascimento e a categoria primeiro...'
+                  : eligibleClasses.length === 0
+                  ? 'Nenhum horário disponível para este ano de nascimento'
+                  : field.placeholder || 'Clique para selecionar o dia e horário...'}
               </span>
             )}
             <ChevronDown
@@ -107,7 +128,7 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
             />
           </div>
 
-          {classDropdownOpen && (
+          {classDropdownOpen && eligibleClasses.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-30 p-3 max-h-80 overflow-hidden flex flex-col">
               <div className="relative mb-2">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -160,6 +181,11 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
             </div>
           )}
         </div>
+        {birthYear && selectedGender && eligibleClasses.length > 0 && (
+          <p className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            {selectedGender} • Categoria {categoryByBirthYear[parsedBirthYear]} • {eligibleClasses.length} {eligibleClasses.length === 1 ? 'horário disponível' : 'horários disponíveis'}.
+          </p>
+        )}
         {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
       </div>
     );
@@ -302,8 +328,12 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
               : 'text'
           }
           value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(field.key === 'rg' ? e.target.value.replace(/\D/g, '').slice(0, 14) : e.target.value)}
           placeholder={field.placeholder || ''}
+          min={field.key === 'birth_year' ? 1900 : undefined}
+          max={field.key === 'birth_year' ? new Date().getFullYear() : undefined}
+          inputMode={field.key === 'rg' ? 'numeric' : undefined}
+          autoComplete={field.field_type === 'phone' ? 'tel' : field.field_type === 'email' ? 'email' : undefined}
           className={`w-full px-4 py-3 text-base rounded-xl border bg-white text-slate-900 transition-all outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent ${
             error ? 'border-red-400 bg-red-50/20' : 'border-slate-300 hover:border-slate-400'
           }`}

@@ -8,7 +8,8 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "npm run build:client && tsx server.ts --static",
+    "dev:hot": "tsx server.ts",
     "build": "npm run clean && npm run typecheck && npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/server.js",

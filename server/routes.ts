@@ -23,9 +23,9 @@ apiRouter.use(['/registrations', '/create-order', '/payment-check', '/sandbox'],
 
 const registrationInputSchema = z.object({
   attempt_id: z.string().trim().min(8).max(128).optional(),
-  full_name: z.string().trim().min(3).max(150),
-  class_id: z.string().uuid(),
-  shirt_size_id: z.string().uuid(),
+  full_name: z.string().trim().max(150).optional().default(''),
+  class_id: z.union([z.string().uuid(), z.literal('')]).optional().default(''),
+  shirt_size_id: z.union([z.string().uuid(), z.literal('')]).optional().default(''),
   dynamic_answers: z.record(z.string(), z.unknown()).optional().default({}),
 });
 
@@ -66,6 +66,22 @@ function safePublicHttpsUrl(value: string | undefined): string | undefined {
   }
 }
 
+function isFieldVisible(field: FormField, answers: Record<string, unknown>): boolean {
+  if (!field.show_when) return true;
+  const sourceValue = answers[field.show_when.field_id];
+  if (sourceValue === undefined || sourceValue === null || sourceValue === '') return false;
+
+  const expected = field.show_when.value;
+  if (field.show_when.operator === 'equals') return String(sourceValue) === expected;
+
+  const actualNumber = Number(sourceValue);
+  const expectedNumber = Number(expected);
+  if (!Number.isFinite(actualNumber) || !Number.isFinite(expectedNumber)) return false;
+  return field.show_when.operator === 'greater_than_or_equal'
+    ? actualNumber >= expectedNumber
+    : actualNumber <= expectedNumber;
+}
+
 // ==========================================
 // PUBLIC ENDPOINTS
 // ==========================================
@@ -84,9 +100,11 @@ apiRouter.get('/public-config', (req, res) => {
     const form_fields = db.getFormFields(true);
     const classes = db.getClasses(true);
     const shirt_sizes = db.getShirtSizes(true);
+    const appearance = db.getFormAppearance();
 
     res.json({
       shirt_price,
+      appearance,
       form_fields,
       classes,
       shirt_sizes,
@@ -109,12 +127,18 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
       return;
     }
     const { attempt_id, full_name, class_id, shirt_size_id, dynamic_answers } = parsed.data;
+    const activeFields = db.getFormFields(true);
+    const appearance = db.getFormAppearance();
+    const fullNameField = activeFields.find((field) => field.system_type === 'full_name');
+    const classField = activeFields.find((field) => field.system_type === 'class_id');
+    const sizeField = activeFields.find((field) => field.system_type === 'shirt_size_id');
+    const trimmedName = full_name.trim();
 
     if (attempt_id) {
       const existing = db.getRegistrationBySubmissionAttemptId(attempt_id);
       if (existing) {
         const sameSubmission =
-          existing.participant_name === full_name.trim() &&
+          existing.participant_name === (trimmedName || 'Participante') &&
           existing.class_id === class_id &&
           existing.shirt_size_id === shirt_size_id;
         if (!sameSubmission) {
@@ -133,42 +157,56 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
             status: existing.status,
           },
           reused: true,
+          requires_payment: appearance.payment_enabled,
         });
         return;
       }
     }
 
-    // 1. Validate full_name
-    const trimmedName = typeof full_name === 'string' ? full_name.trim() : '';
-    if (!trimmedName || trimmedName.length < 3) {
+    // System fields are validated only while active/required in the builder.
+    if (fullNameField?.required && trimmedName.length < 3) {
       res.status(400).json({ error: 'O nome completo é obrigatório (mínimo 3 caracteres).' });
       return;
     }
 
-    // 2. Validate class_id
-    if (!class_id) {
-      res.status(400).json({ error: 'A seleção da turma é obrigatória.' });
+    if (classField?.required && !class_id) {
+      res.status(400).json({ error: `O campo "${classField.label}" é obrigatório.` });
       return;
     }
-    const classItem = db.getClassById(class_id);
-    if (!classItem || !classItem.active) {
+    const classItem = class_id ? db.getClassById(class_id) : undefined;
+    if (class_id && (!classItem || !classItem.active)) {
       res.status(400).json({ error: 'A turma selecionada não é válida ou foi desativada.' });
       return;
     }
 
-    // 3. Validate shirt_size_id
-    if (!shirt_size_id) {
+    if (classItem?.eligible_birth_years?.length) {
+      const birthYearField = activeFields.find((field) => field.key === 'birth_year');
+      const birthYear = birthYearField ? Number(dynamic_answers[birthYearField.id]) : NaN;
+      if (!Number.isInteger(birthYear) || !classItem.eligible_birth_years.includes(birthYear)) {
+        res.status(400).json({ error: 'O dia e horário selecionado não é permitido para o ano de nascimento informado.' });
+        return;
+      }
+    }
+    if (classItem) {
+      const genderField = activeFields.find((field) => field.key === 'selection_gender');
+      const selectedGender = genderField ? String(dynamic_answers[genderField.id] || '').trim() : '';
+      if (!selectedGender || !classItem.gender.toUpperCase().includes(selectedGender.toUpperCase())) {
+        res.status(400).json({ error: 'O dia e horário selecionado não corresponde à categoria Masculino/Feminino informada.' });
+        return;
+      }
+    }
+
+    if ((sizeField?.required || appearance.payment_enabled) && !shirt_size_id) {
       res.status(400).json({ error: 'A seleção do tamanho da camiseta é obrigatória.' });
       return;
     }
-    const shirtSize = db.getShirtSizeById(shirt_size_id);
-    if (!shirtSize || !shirtSize.active) {
+    const shirtSize = shirt_size_id ? db.getShirtSizeById(shirt_size_id) : undefined;
+    if (shirt_size_id && (!shirtSize || !shirtSize.active)) {
       res.status(400).json({ error: 'O tamanho de camiseta selecionado não é válido ou foi desativado.' });
       return;
     }
 
-    // 4. Validate dynamic required fields
-    const activeFields = db.getFormFields(true);
+    // Validate visible custom fields and keep historical answer snapshots.
     const answersToSave: Array<{
       field_id: string;
       field_key_snapshot: string;
@@ -176,38 +214,70 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
       value: string;
     }> = [];
 
-    // System fields snapshots in answers
-    const fullNameField = activeFields.find((f) => f.key === 'full_name');
-    answersToSave.push({
-      field_id: fullNameField ? fullNameField.id : 'system_full_name',
-      field_key_snapshot: 'full_name',
-      label_snapshot: fullNameField ? fullNameField.label : 'Nome completo',
-      value: trimmedName,
-    });
+    if (fullNameField && trimmedName) {
+      answersToSave.push({
+        field_id: fullNameField.id,
+        field_key_snapshot: 'full_name',
+        label_snapshot: fullNameField.label,
+        value: trimmedName,
+      });
+    }
 
-    const classField = activeFields.find((f) => f.key === 'class_id');
-    answersToSave.push({
-      field_id: classField ? classField.id : 'system_class_id',
-      field_key_snapshot: 'class_id',
-      label_snapshot: classField ? classField.label : 'Unidade/Turma',
-      value: classItem.display_label,
-    });
+    if (classField && classItem) {
+      answersToSave.push({
+        field_id: classField.id,
+        field_key_snapshot: 'class_id',
+        label_snapshot: classField.label,
+        value: classItem.display_label,
+      });
+    }
 
-    const sizeField = activeFields.find((f) => f.key === 'shirt_size_id');
-    answersToSave.push({
-      field_id: sizeField ? sizeField.id : 'system_shirt_size_id',
-      field_key_snapshot: 'shirt_size_id',
-      label_snapshot: sizeField ? sizeField.label : 'Tamanho camiseta',
-      value: `${shirtSize.code} (${shirtSize.category === 'adult' ? 'Adulto' : 'Infantil'}) - ${shirtSize.width_cm}x${shirtSize.length_cm} cm`,
-    });
+    if (sizeField && shirtSize) {
+      answersToSave.push({
+        field_id: sizeField.id,
+        field_key_snapshot: 'shirt_size_id',
+        label_snapshot: sizeField.label,
+        value: `${shirtSize.code} (${shirtSize.category === 'adult' ? 'Adulto' : 'Infantil'}) - ${shirtSize.width_cm}x${shirtSize.length_cm} cm`,
+      });
+    }
 
     // Check custom dynamic fields
     const customAnswers = dynamic_answers && typeof dynamic_answers === 'object' ? dynamic_answers : {};
     for (const field of activeFields) {
       if (field.system_type) continue; // Already handled above
 
+      if (!isFieldVisible(field, customAnswers)) continue;
+
       const rawVal = customAnswers[field.id];
-      const valStr = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
+      let valStr = Array.isArray(rawVal)
+        ? rawVal.map(String).map((value) => value.trim()).filter(Boolean).join(', ')
+        : rawVal !== undefined && rawVal !== null
+        ? String(rawVal).trim()
+        : '';
+
+      if (field.key === 'rg' && valStr) {
+        valStr = valStr.replace(/\D/g, '');
+        if (valStr.length < 7 || valStr.length > 14) {
+          res.status(400).json({ error: 'Informe um RG válido com 7 a 14 números.' });
+          return;
+        }
+        if (db.findRegistrationByAnswer('rg', valStr)) {
+          res.status(409).json({ error: 'Já existe uma inscrição cadastrada para este RG.', code: 'duplicate_rg' });
+          return;
+        }
+      }
+
+      if (field.key === 'birth_year' && valStr) {
+        const year = Number(valStr);
+        if (!Number.isInteger(year) || year < 1900 || year > new Date().getFullYear()) {
+          res.status(400).json({ error: 'Informe um ano de nascimento válido com quatro dígitos.' });
+          return;
+        }
+      }
+      if (field.key === 'selection_gender' && !['Masculino', 'Feminino'].includes(valStr)) {
+        res.status(400).json({ error: 'Selecione uma categoria.' });
+        return;
+      }
 
       if (field.required && !valStr) {
         res.status(400).json({ error: `O campo "${field.label}" é obrigatório.` });
@@ -224,24 +294,25 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
       }
     }
 
-    // 5. Query current shirt price from system_settings (Rule 3: frontend cannot dictate price)
-    const shirt_price = db.getShirtPrice();
+    const amount = appearance.payment_enabled ? db.getShirtPrice() : 0;
+    const confirmedAt = appearance.payment_enabled ? undefined : new Date().toISOString();
 
     // 6. Create registration record with historical snapshot
     const registration = db.createRegistration(
       {
         submission_attempt_id: attempt_id,
-        participant_name: trimmedName,
-        class_id: classItem.id,
-        class_label_snapshot: classItem.display_label,
-        shirt_size_id: shirtSize.id,
-        shirt_size_code_snapshot: shirtSize.code,
-        shirt_width_cm_snapshot: shirtSize.width_cm,
-        shirt_length_cm_snapshot: shirtSize.length_cm,
-        shirt_category_snapshot: shirtSize.category,
-        shirt_quantity: 1, // Rule 1: always 1
-        amount: shirt_price, // Preserved snapshot
-        status: 'pending_payment',
+        participant_name: trimmedName || 'Participante',
+        class_id: classItem?.id || '',
+        class_label_snapshot: classItem?.display_label || '',
+        shirt_size_id: shirtSize?.id || '',
+        shirt_size_code_snapshot: shirtSize?.code || '',
+        shirt_width_cm_snapshot: shirtSize?.width_cm || 0,
+        shirt_length_cm_snapshot: shirtSize?.length_cm || 0,
+        shirt_category_snapshot: shirtSize?.category || 'adult',
+        shirt_quantity: 1,
+        amount,
+        status: appearance.payment_enabled ? 'pending_payment' : 'confirmed',
+        confirmed_at: confirmedAt,
       },
       answersToSave
     );
@@ -257,6 +328,7 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
         amount: registration.amount,
         status: registration.status,
       },
+      requires_payment: appearance.payment_enabled,
     });
   } catch (err: any) {
     console.error('Error in /api/registrations:', err);
@@ -1253,13 +1325,67 @@ apiRouter.get('/admin/export', requireAdminAuth, (req, res) => {
 /**
  * Form Fields Management
  */
+apiRouter.get('/admin/form-appearance', requireAdminAuth, (_req, res) => {
+  res.json(db.getFormAppearance());
+});
+
+apiRouter.put('/admin/form-appearance', requireAdminAuth, (req, res) => {
+  try {
+    const textSettings: Record<string, { key: string; max: number }> = {
+      eyebrow: { key: 'form_eyebrow', max: 80 },
+      title: { key: 'form_title', max: 120 },
+      description: { key: 'form_description', max: 600 },
+      primary_logo_url: { key: 'form_primary_logo_url', max: 2_048 },
+      secondary_logo_url: { key: 'form_secondary_logo_url', max: 2_048 },
+      header_banner_url: { key: 'form_header_banner_url', max: 2_048 },
+      submit_label: { key: 'form_submit_label', max: 80 },
+      success_title: { key: 'form_success_title', max: 120 },
+      success_description: { key: 'form_success_description', max: 600 },
+      maps_api_key: { key: 'form_maps_api_key', max: 256 },
+      location_bsc_address: { key: 'form_location_bsc_address', max: 500 },
+      location_colegio_address: { key: 'form_location_colegio_address', max: 500 },
+    };
+
+    for (const [bodyKey, setting] of Object.entries(textSettings)) {
+      if (req.body[bodyKey] === undefined) continue;
+      const value = String(req.body[bodyKey]).trim();
+      if (value.length > setting.max) {
+        res.status(400).json({ error: `O campo ${bodyKey} excede o limite permitido.` });
+        return;
+      }
+      if ((bodyKey.includes('logo') || bodyKey.includes('banner')) && value && !/^(https?:\/\/|\/)/i.test(value)) {
+        res.status(400).json({ error: 'Use uma URL http(s) ou um caminho iniciado por / para os logos.' });
+        return;
+      }
+      db.setSetting(setting.key, value);
+    }
+
+    if (req.body.payment_enabled !== undefined) {
+      const paymentEnabled = Boolean(req.body.payment_enabled);
+      db.setSetting('form_payment_enabled', paymentEnabled ? 'true' : 'false');
+      if (paymentEnabled) {
+        const shirtField = db.getFormFields(false).find((field) => field.system_type === 'shirt_size_id');
+        if (shirtField) db.updateFormField(shirtField.id, { active: true, required: true });
+      }
+    }
+    if (req.body.maps_enabled !== undefined) {
+      db.setSetting('form_maps_enabled', req.body.maps_enabled ? 'true' : 'false');
+    }
+
+    res.json(db.getFormAppearance());
+  } catch (err: any) {
+    console.error('Error updating form appearance:', err);
+    res.status(500).json({ error: 'Erro ao atualizar a apresentação do formulário' });
+  }
+});
+
 apiRouter.get('/admin/form-fields', requireAdminAuth, (req, res) => {
   res.json(db.getFormFields(false));
 });
 
 apiRouter.post('/admin/form-fields', requireAdminAuth, (req, res) => {
   try {
-    const { label, description, field_type, placeholder, required, options } = req.body;
+    const { label, description, field_type, placeholder, required, options, show_when } = req.body;
     if (!label || !field_type) {
       res.status(400).json({ error: 'Pergunta e tipo são obrigatórios' });
       return;
@@ -1278,6 +1404,7 @@ apiRouter.post('/admin/form-fields', requireAdminAuth, (req, res) => {
       active: true,
       sort_order: count + 1,
       options: Array.isArray(options) ? options : [],
+      show_when: show_when?.field_id ? show_when : undefined,
     });
 
     res.status(201).json(newField);
@@ -1325,7 +1452,7 @@ apiRouter.get('/admin/classes', requireAdminAuth, (req, res) => {
 
 apiRouter.post('/admin/classes', requireAdminAuth, (req, res) => {
   try {
-    const { display_label, unit, category, gender, level, weekday, start_time } = req.body;
+    const { display_label, unit, category, gender, level, weekday, start_time, eligible_birth_years } = req.body;
     if (!display_label) {
       res.status(400).json({ error: 'Nome/descrição da turma é obrigatório' });
       return;
@@ -1340,6 +1467,9 @@ apiRouter.post('/admin/classes', requireAdminAuth, (req, res) => {
       level: level || 'GERAL',
       weekday: weekday || '',
       start_time: start_time || '',
+      eligible_birth_years: Array.isArray(eligible_birth_years)
+        ? eligible_birth_years.map(Number).filter(Number.isInteger)
+        : [],
       active: true,
       sort_order: count + 1,
     });

@@ -80,6 +80,24 @@ var INITIAL_CLASSES = [
   { display_label: "UNIDADE VILA R\xC9 - INFANTIL QUINTA 18:30HS", unit: "VILA R\xC9", category: "INFANTIL", gender: "MISTO", level: "INICIANTE", weekday: "QUINTA", start_time: "18:30", active: true, sort_order: 21 },
   { display_label: "UNIDADE VILA R\xC9 - MISTO QUINTA 20HS", unit: "VILA R\xC9", category: "ADULTO", gender: "MISTO", level: "GERAL", weekday: "QUINTA", start_time: "20:00", active: true, sort_order: 22 }
 ];
+var SELECTION_SCHEDULE = [
+  { display_label: "08/dez \u2022 20:30 \xE0s 22:00 \u2022 FEMININO SUB 17/19 \u2022 COL\xC9GIO", unit: "COL\xC9GIO", category: "SUB 17/19", gender: "FEMININO", level: "SELETIVA", weekday: "08/dez", start_time: "20:30\u201322:00", eligible_birth_years: [2009, 2010, 2011, 2012], active: true, sort_order: 1 },
+  { display_label: "09/dez \u2022 15:00 \xE0s 16:30 \u2022 FEMININO SUB 13 \u2022 BSC", unit: "BSC", category: "SUB 13", gender: "FEMININO", level: "SELETIVA", weekday: "09/dez", start_time: "15:00\u201316:30", eligible_birth_years: [2015, 2016], active: true, sort_order: 2 },
+  { display_label: "09/dez \u2022 16:30 \xE0s 18:00 \u2022 FEMININO SUB 15 \u2022 BSC", unit: "BSC", category: "SUB 15", gender: "FEMININO", level: "SELETIVA", weekday: "09/dez", start_time: "16:30\u201318:00", eligible_birth_years: [2013, 2014], active: true, sort_order: 3 },
+  { display_label: "09/dez \u2022 19:00 \xE0s 20:30 \u2022 MASCULINO SUB 17 \u2022 COL\xC9GIO", unit: "COL\xC9GIO", category: "SUB 17", gender: "MASCULINO", level: "SELETIVA", weekday: "09/dez", start_time: "19:00\u201320:30", eligible_birth_years: [2011, 2012], active: true, sort_order: 4 },
+  { display_label: "09/dez \u2022 20:30 \xE0s 22:00 \u2022 MASCULINO SUB 19 \u2022 COL\xC9GIO", unit: "COL\xC9GIO", category: "SUB 19", gender: "MASCULINO", level: "SELETIVA", weekday: "09/dez", start_time: "20:30\u201322:00", eligible_birth_years: [2009, 2010], active: true, sort_order: 5 },
+  { display_label: "11/dez \u2022 09:30 \xE0s 11:00 \u2022 FEMININO/MASCULINO SUB 11 \u2022 BSC", unit: "BSC", category: "SUB 11", gender: "FEMININO/MASCULINO", level: "SELETIVA", weekday: "11/dez", start_time: "09:30\u201311:00", eligible_birth_years: [2017, 2018], active: true, sort_order: 6 },
+  { display_label: "11/dez \u2022 13:30 \xE0s 15:00 \u2022 MASCULINO SUB 13 \u2022 BSC", unit: "BSC", category: "SUB 13", gender: "MASCULINO", level: "SELETIVA", weekday: "11/dez", start_time: "13:30\u201315:00", eligible_birth_years: [2015, 2016], active: true, sort_order: 7 },
+  { display_label: "11/dez \u2022 15:00 \xE0s 16:30 \u2022 MASCULINO SUB 15 \u2022 BSC", unit: "BSC", category: "SUB 15", gender: "MASCULINO", level: "SELETIVA", weekday: "11/dez", start_time: "15:00\u201316:30", eligible_birth_years: [2013, 2014], active: true, sort_order: 8 },
+  { display_label: "11/dez \u2022 16:30 \xE0s 18:00 \u2022 FEMININO SUB 15 \u2022 BSC", unit: "BSC", category: "SUB 15", gender: "FEMININO", level: "SELETIVA", weekday: "11/dez", start_time: "16:30\u201318:00", eligible_birth_years: [2013, 2014], active: true, sort_order: 9 },
+  { display_label: "14/dez \u2022 15:00 \xE0s 16:30 \u2022 MASCULINO SUB 13 \u2022 BSC", unit: "BSC", category: "SUB 13", gender: "MASCULINO", level: "SELETIVA", weekday: "14/dez", start_time: "15:00\u201316:30", eligible_birth_years: [2015, 2016], active: true, sort_order: 10 },
+  { display_label: "15/dez \u2022 20:30 \xE0s 22:00 \u2022 FEMININO SUB 17/19 \u2022 COL\xC9GIO", unit: "COL\xC9GIO", category: "SUB 17/19", gender: "FEMININO", level: "SELETIVA", weekday: "15/dez", start_time: "20:30\u201322:00", eligible_birth_years: [2009, 2010, 2011, 2012], active: true, sort_order: 11 },
+  { display_label: "16/dez \u2022 08:00 \xE0s 09:30 \u2022 FEMININO/MASCULINO SUB 11 \u2022 BSC", unit: "BSC", category: "SUB 11", gender: "FEMININO/MASCULINO", level: "SELETIVA", weekday: "16/dez", start_time: "08:00\u201309:30", eligible_birth_years: [2017, 2018], active: true, sort_order: 12 },
+  { display_label: "16/dez \u2022 15:00 \xE0s 16:30 \u2022 FEMININO SUB 13 \u2022 BSC", unit: "BSC", category: "SUB 13", gender: "FEMININO", level: "SELETIVA", weekday: "16/dez", start_time: "15:00\u201316:30", eligible_birth_years: [2015, 2016], active: true, sort_order: 13 },
+  { display_label: "16/dez \u2022 16:30 \xE0s 18:00 \u2022 MASCULINO SUB 15 \u2022 BSC", unit: "BSC", category: "SUB 15", gender: "MASCULINO", level: "SELETIVA", weekday: "16/dez", start_time: "16:30\u201318:00", eligible_birth_years: [2013, 2014], active: true, sort_order: 14 },
+  { display_label: "16/dez \u2022 19:00 \xE0s 20:30 \u2022 MASCULINO SUB 17 \u2022 COL\xC9GIO", unit: "COL\xC9GIO", category: "SUB 17", gender: "MASCULINO", level: "SELETIVA", weekday: "16/dez", start_time: "19:00\u201320:30", eligible_birth_years: [2011, 2012], active: true, sort_order: 15 },
+  { display_label: "16/dez \u2022 20:30 \xE0s 22:00 \u2022 MASCULINO SUB 19 \u2022 COL\xC9GIO", unit: "COL\xC9GIO", category: "SUB 19", gender: "MASCULINO", level: "SELETIVA", weekday: "16/dez", start_time: "20:30\u201322:00", eligible_birth_years: [2009, 2010], active: true, sort_order: 16 }
+];
 var INITIAL_SHIRT_SIZES = [
   // Adulto
   { code: "G5", name: "G5 Adulto", width_cm: 71.5, length_cm: 94, category: "adult", active: true, sort_order: 1 },
@@ -103,7 +121,7 @@ var INITIAL_FORM_FIELDS = [
   {
     key: "full_name",
     label: "Nome completo",
-    description: "Informe o nome completo do aluno ou respons\xE1vel",
+    description: "Informe o nome completo do(a) ALUNO(A)",
     field_type: "text",
     placeholder: "Ex: Lucas Silva Oliveira",
     required: true,
@@ -134,6 +152,268 @@ var INITIAL_FORM_FIELDS = [
     system_type: "shirt_size_id"
   }
 ];
+var FORM_SETTING_DEFAULTS = {
+  form_eyebrow: "PENEIRA ULTRA VOLLEYBALL",
+  form_title: "Sele\xE7\xE3o de atletas",
+  form_description: "Cadastre-se para participar da peneira. Escolha o local e o hor\xE1rio dispon\xEDveis e conte um pouco sobre sua experi\xEAncia no v\xF4lei.",
+  form_primary_logo_url: "",
+  form_secondary_logo_url: "",
+  form_header_banner_url: "/assets/seletivas-batalha-2027.png",
+  form_submit_label: "Confirmar inscri\xE7\xE3o",
+  form_success_title: "Inscri\xE7\xE3o recebida!",
+  form_success_description: "Seu cadastro para a peneira foi realizado. Guarde o c\xF3digo da inscri\xE7\xE3o e aguarde as orienta\xE7\xF5es da equipe Ultra.",
+  form_payment_enabled: "false",
+  form_maps_enabled: "false",
+  form_maps_api_key: "",
+  form_location_bsc_address: "",
+  form_location_colegio_address: ""
+};
+function ensureGeneralFormDefaults(source) {
+  const data = structuredClone(source);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const getSetting = (key) => data.system_settings.find((item) => item.key === key);
+  const addSetting = (key, value) => {
+    if (!getSetting(key)) {
+      data.system_settings.push({ id: generateUUID(), key, value, updated_at: now });
+    }
+  };
+  const setSetting = (key, value) => {
+    const existing = getSetting(key);
+    if (existing) {
+      existing.value = value;
+      existing.updated_at = now;
+    } else {
+      addSetting(key, value);
+    }
+  };
+  Object.entries(FORM_SETTING_DEFAULTS).forEach(([key, value]) => addSetting(key, value));
+  if (!getSetting("general_form_version")) {
+    const fullName = data.form_fields.find((field) => field.key === "full_name");
+    if (fullName) {
+      fullName.label = "Nome completo do(a) atleta";
+      fullName.description = "Use o nome completo que consta no documento";
+      fullName.placeholder = "Ex: Ana Carolina Silva";
+      fullName.active = true;
+      fullName.required = true;
+      fullName.sort_order = 1;
+      fullName.updated_at = now;
+    }
+    const classField = data.form_fields.find((field) => field.key === "class_id");
+    if (classField) {
+      classField.label = "Local e hor\xE1rio da peneira";
+      classField.description = "Escolha uma das op\xE7\xF5es dispon\xEDveis para participar da sele\xE7\xE3o";
+      classField.placeholder = "Selecione o local e o hor\xE1rio...";
+      classField.active = true;
+      classField.required = true;
+      classField.sort_order = 6;
+      classField.updated_at = now;
+    }
+    const shirtField = data.form_fields.find((field) => field.key === "shirt_size_id");
+    if (shirtField) {
+      shirtField.active = false;
+      shirtField.required = false;
+      shirtField.sort_order = 90;
+      shirtField.updated_at = now;
+    }
+    const ensureField = (key, input) => {
+      const existing = data.form_fields.find((field) => field.key === key);
+      if (existing) return existing;
+      const created = {
+        ...input,
+        id: generateUUID(),
+        key,
+        created_at: now,
+        updated_at: now
+      };
+      data.form_fields.push(created);
+      return created;
+    };
+    const birthYear = ensureField("birth_year", {
+      label: "Ano de nascimento",
+      description: "Informe os quatro d\xEDgitos do ano de nascimento",
+      field_type: "number",
+      placeholder: "Ex: 2008",
+      required: true,
+      active: true,
+      sort_order: 2
+    });
+    ensureField("guardian_name", {
+      label: "Nome completo do respons\xE1vel",
+      description: "Exibido para atletas nascidos em 2009 ou depois",
+      field_type: "text",
+      placeholder: "Nome do pai, m\xE3e ou respons\xE1vel legal",
+      required: true,
+      active: true,
+      sort_order: 3,
+      show_when: {
+        field_id: birthYear.id,
+        operator: "greater_than_or_equal",
+        value: "2009"
+      }
+    });
+    ensureField("phone", {
+      label: "WhatsApp para contato",
+      description: "Inclua o DDD",
+      field_type: "phone",
+      placeholder: "(11) 99999-9999",
+      required: true,
+      active: true,
+      sort_order: 4
+    });
+    ensureField("email", {
+      label: "E-mail",
+      description: "Usaremos este e-mail para comunica\xE7\xF5es sobre a peneira",
+      field_type: "email",
+      placeholder: "voce@exemplo.com",
+      required: true,
+      active: true,
+      sort_order: 5
+    });
+    ensureField("volleyball_experience", {
+      label: "Experi\xEAncia com v\xF4lei",
+      description: "Conte onde j\xE1 jogou, por quanto tempo e sua posi\xE7\xE3o preferida",
+      field_type: "textarea",
+      placeholder: "Ex: jogo h\xE1 3 anos como ponteiro...",
+      required: false,
+      active: true,
+      sort_order: 7
+    });
+    data.form_fields.filter((field) => !["full_name", "birth_year", "guardian_name", "phone", "email", "class_id", "volleyball_experience", "shirt_size_id"].includes(field.key)).forEach((field, index) => {
+      field.sort_order = 20 + index;
+    });
+    addSetting("general_form_version", "1");
+  }
+  if (Number(getSetting("selection_schedule_version")?.value || "0") < 2) {
+    const ensureSelectionField = (key, input) => {
+      const existing = data.form_fields.find((field) => field.key === key);
+      if (existing) {
+        Object.assign(existing, input, { updated_at: now });
+        return existing;
+      }
+      const created = { ...input, id: generateUUID(), key, created_at: now, updated_at: now };
+      data.form_fields.push(created);
+      return created;
+    };
+    ensureSelectionField("full_name", {
+      label: "Nome completo do(a) atleta",
+      description: "Informe como consta no documento",
+      field_type: "text",
+      placeholder: "Ex: Ana Carolina Silva",
+      required: true,
+      active: true,
+      sort_order: 1,
+      system_type: "full_name"
+    });
+    ensureSelectionField("guardian_name", {
+      label: "Nome completo do respons\xE1vel",
+      description: "Respons\xE1vel legal pelo(a) atleta",
+      field_type: "text",
+      placeholder: "Nome do pai, m\xE3e ou respons\xE1vel",
+      required: true,
+      active: true,
+      sort_order: 2,
+      show_when: null
+    });
+    ensureSelectionField("phone", {
+      label: "WhatsApp para contato",
+      description: "Inclua o DDD",
+      field_type: "phone",
+      placeholder: "(11) 99999-9999",
+      required: true,
+      active: true,
+      sort_order: 3
+    });
+    ensureSelectionField("rg", {
+      label: "RG do(a) atleta",
+      description: "Uso exclusivo desta inscri\xE7\xE3o; ser\xE1 permitido apenas um cadastro por RG",
+      field_type: "text",
+      placeholder: "Digite somente n\xFAmeros",
+      required: true,
+      active: true,
+      sort_order: 4
+    });
+    ensureSelectionField("birth_year", {
+      label: "Ano de nascimento",
+      description: "Os hor\xE1rios dispon\xEDveis ser\xE3o filtrados automaticamente",
+      field_type: "number",
+      placeholder: "Ex: 2014",
+      required: true,
+      active: true,
+      sort_order: 5
+    });
+    ensureSelectionField("class_id", {
+      label: "Dia e hor\xE1rio da seletiva",
+      description: "Exibimos apenas as op\xE7\xF5es permitidas para o ano de nascimento informado",
+      field_type: "class_selector",
+      placeholder: "Selecione um dia e hor\xE1rio...",
+      required: true,
+      active: true,
+      sort_order: 6,
+      system_type: "class_id"
+    });
+    data.form_fields.forEach((field) => {
+      if (!["full_name", "guardian_name", "phone", "rg", "birth_year", "class_id"].includes(field.key)) {
+        field.active = false;
+        field.required = false;
+        field.updated_at = now;
+      }
+    });
+    data.classes = SELECTION_SCHEDULE.map((item) => ({
+      ...item,
+      id: generateUUID(),
+      created_at: now,
+      updated_at: now
+    }));
+    setSetting("form_eyebrow", "TEMPORADA 2027 \u2022 SELETIVAS EM DEZEMBRO");
+    setSetting("form_title", "Seletivas Batalha Ultra Volleyball");
+    setSetting("form_description", "Preencha os dados do atleta. O sistema mostrar\xE1 somente os dias e hor\xE1rios compat\xEDveis com o ano de nascimento.");
+    setSetting("form_header_banner_url", "/assets/seletivas-batalha-2027.png");
+    setSetting("form_submit_label", "Confirmar inscri\xE7\xE3o na seletiva");
+    setSetting("form_success_title", "Inscri\xE7\xE3o na seletiva recebida!");
+    setSetting("form_success_description", "Guarde seu c\xF3digo de inscri\xE7\xE3o e compare\xE7a no local escolhido com anteced\xEAncia.");
+    setSetting("form_payment_enabled", "false");
+    setSetting("selection_schedule_version", "2");
+  }
+  if (Number(getSetting("selection_schedule_version")?.value || "0") < 3) {
+    const existingGender = data.form_fields.find((field) => field.key === "selection_gender");
+    if (existingGender) {
+      Object.assign(existingGender, {
+        label: "Categoria da seletiva",
+        description: "Selecione a categoria para filtrar os hor\xE1rios",
+        field_type: "select",
+        placeholder: "Selecione Masculino ou Feminino...",
+        required: true,
+        active: true,
+        sort_order: 6,
+        options: ["Masculino", "Feminino"],
+        updated_at: now
+      });
+    } else {
+      data.form_fields.push({
+        id: generateUUID(),
+        key: "selection_gender",
+        label: "Categoria da seletiva",
+        description: "Selecione a categoria para filtrar os hor\xE1rios",
+        field_type: "select",
+        placeholder: "Selecione Masculino ou Feminino...",
+        required: true,
+        active: true,
+        sort_order: 6,
+        options: ["Masculino", "Feminino"],
+        created_at: now,
+        updated_at: now
+      });
+    }
+    const classField = data.form_fields.find((field) => field.key === "class_id");
+    if (classField) {
+      classField.sort_order = 7;
+      classField.description = "Exibimos apenas as op\xE7\xF5es permitidas para o ano de nascimento e a categoria informados";
+      classField.updated_at = now;
+    }
+    setSetting("selection_schedule_version", "3");
+  }
+  return data;
+}
 function hashPassword(password) {
   return bcrypt.hashSync(password, 12);
 }
@@ -163,7 +443,9 @@ var Database = class {
     if (!this.managedDatabase && fs.existsSync(DB_FILE)) {
       try {
         const content = fs.readFileSync(DB_FILE, "utf-8");
-        return JSON.parse(content);
+        const upgraded2 = ensureGeneralFormDefaults(JSON.parse(content));
+        this.saveData(upgraded2);
+        return upgraded2;
       } catch (err) {
         console.error("Error reading db file, re-initializing...", err);
       }
@@ -219,10 +501,11 @@ var Database = class {
         }
       ]
     };
+    const upgraded = ensureGeneralFormDefaults(seeded);
     if (!this.managedDatabase) {
-      this.saveData(seeded);
+      this.saveData(upgraded);
     }
-    return seeded;
+    return upgraded;
   }
   saveData(data) {
     const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
@@ -250,7 +533,7 @@ var Database = class {
     if (!requiredCollections.every((key) => Array.isArray(data?.[key]))) {
       throw new Error("Estado persistido do sistema \xE9 inv\xE1lido");
     }
-    this.data = structuredClone(data);
+    this.data = ensureGeneralFormDefaults(data);
   }
   // System settings
   getSetting(key, defaultValue = "") {
@@ -277,6 +560,27 @@ var Database = class {
     const val = this.getSetting("shirt_price", "7000");
     const parsed = parseInt(val, 10);
     return Number.isFinite(parsed) ? parsed : 7e3;
+  }
+  getFormAppearance() {
+    return {
+      eyebrow: this.getSetting("form_eyebrow", FORM_SETTING_DEFAULTS.form_eyebrow),
+      title: this.getSetting("form_title", FORM_SETTING_DEFAULTS.form_title),
+      description: this.getSetting("form_description", FORM_SETTING_DEFAULTS.form_description),
+      primary_logo_url: this.getSetting("form_primary_logo_url", ""),
+      secondary_logo_url: this.getSetting("form_secondary_logo_url", ""),
+      header_banner_url: this.getSetting("form_header_banner_url", ""),
+      submit_label: this.getSetting("form_submit_label", FORM_SETTING_DEFAULTS.form_submit_label),
+      success_title: this.getSetting("form_success_title", FORM_SETTING_DEFAULTS.form_success_title),
+      success_description: this.getSetting(
+        "form_success_description",
+        FORM_SETTING_DEFAULTS.form_success_description
+      ),
+      payment_enabled: this.getSetting("form_payment_enabled", "false") === "true",
+      maps_enabled: this.getSetting("form_maps_enabled", "false") === "true",
+      maps_api_key: this.getSetting("form_maps_api_key", ""),
+      location_bsc_address: this.getSetting("form_location_bsc_address", ""),
+      location_colegio_address: this.getSetting("form_location_colegio_address", "")
+    };
   }
   // Classes
   getClasses(onlyActive = true) {
@@ -431,6 +735,12 @@ var Database = class {
     return this.data.registrations.find(
       (r) => r.public_code.toLowerCase() === publicCode.toLowerCase()
     );
+  }
+  findRegistrationByAnswer(fieldKey, value) {
+    const answer = this.data.registration_answers.find(
+      (item) => item.field_key_snapshot === fieldKey && item.value === value
+    );
+    return answer ? this.getRegistrationById(answer.registration_id) : void 0;
   }
   getRegistrations() {
     return this.data.registrations.slice().sort((a, b) => {
@@ -961,9 +1271,9 @@ apiRouter.use("/admin", requireSameOrigin);
 apiRouter.use(["/registrations", "/create-order", "/payment-check", "/sandbox"], requireSameOrigin);
 var registrationInputSchema = z.object({
   attempt_id: z.string().trim().min(8).max(128).optional(),
-  full_name: z.string().trim().min(3).max(150),
-  class_id: z.string().uuid(),
-  shirt_size_id: z.string().uuid(),
+  full_name: z.string().trim().max(150).optional().default(""),
+  class_id: z.union([z.string().uuid(), z.literal("")]).optional().default(""),
+  shirt_size_id: z.union([z.string().uuid(), z.literal("")]).optional().default(""),
   dynamic_answers: z.record(z.string(), z.unknown()).optional().default({})
 });
 var createOrderInputSchema = z.object({
@@ -998,6 +1308,17 @@ function safePublicHttpsUrl(value) {
     return void 0;
   }
 }
+function isFieldVisible(field, answers) {
+  if (!field.show_when) return true;
+  const sourceValue = answers[field.show_when.field_id];
+  if (sourceValue === void 0 || sourceValue === null || sourceValue === "") return false;
+  const expected = field.show_when.value;
+  if (field.show_when.operator === "equals") return String(sourceValue) === expected;
+  const actualNumber = Number(sourceValue);
+  const expectedNumber = Number(expected);
+  if (!Number.isFinite(actualNumber) || !Number.isFinite(expectedNumber)) return false;
+  return field.show_when.operator === "greater_than_or_equal" ? actualNumber >= expectedNumber : actualNumber <= expectedNumber;
+}
 apiRouter.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
@@ -1007,8 +1328,10 @@ apiRouter.get("/public-config", (req, res) => {
     const form_fields = db.getFormFields(true);
     const classes = db.getClasses(true);
     const shirt_sizes = db.getShirtSizes(true);
+    const appearance = db.getFormAppearance();
     res.json({
       shirt_price,
+      appearance,
       form_fields,
       classes,
       shirt_sizes
@@ -1026,10 +1349,16 @@ apiRouter.post("/registrations", registrationLimiter, (req, res) => {
       return;
     }
     const { attempt_id, full_name, class_id, shirt_size_id, dynamic_answers } = parsed.data;
+    const activeFields = db.getFormFields(true);
+    const appearance = db.getFormAppearance();
+    const fullNameField = activeFields.find((field) => field.system_type === "full_name");
+    const classField = activeFields.find((field) => field.system_type === "class_id");
+    const sizeField = activeFields.find((field) => field.system_type === "shirt_size_id");
+    const trimmedName = full_name.trim();
     if (attempt_id) {
       const existing = db.getRegistrationBySubmissionAttemptId(attempt_id);
       if (existing) {
-        const sameSubmission = existing.participant_name === full_name.trim() && existing.class_id === class_id && existing.shirt_size_id === shirt_size_id;
+        const sameSubmission = existing.participant_name === (trimmedName || "Participante") && existing.class_id === class_id && existing.shirt_size_id === shirt_size_id;
         if (!sameSubmission) {
           res.status(409).json({ error: "Identificador de tentativa j\xE1 utilizado em outra inscri\xE7\xE3o." });
           return;
@@ -1045,62 +1374,103 @@ apiRouter.post("/registrations", registrationLimiter, (req, res) => {
             amount: existing.amount,
             status: existing.status
           },
-          reused: true
+          reused: true,
+          requires_payment: appearance.payment_enabled
         });
         return;
       }
     }
-    const trimmedName = typeof full_name === "string" ? full_name.trim() : "";
-    if (!trimmedName || trimmedName.length < 3) {
+    if (fullNameField?.required && trimmedName.length < 3) {
       res.status(400).json({ error: "O nome completo \xE9 obrigat\xF3rio (m\xEDnimo 3 caracteres)." });
       return;
     }
-    if (!class_id) {
-      res.status(400).json({ error: "A sele\xE7\xE3o da turma \xE9 obrigat\xF3ria." });
+    if (classField?.required && !class_id) {
+      res.status(400).json({ error: `O campo "${classField.label}" \xE9 obrigat\xF3rio.` });
       return;
     }
-    const classItem = db.getClassById(class_id);
-    if (!classItem || !classItem.active) {
+    const classItem = class_id ? db.getClassById(class_id) : void 0;
+    if (class_id && (!classItem || !classItem.active)) {
       res.status(400).json({ error: "A turma selecionada n\xE3o \xE9 v\xE1lida ou foi desativada." });
       return;
     }
-    if (!shirt_size_id) {
+    if (classItem?.eligible_birth_years?.length) {
+      const birthYearField = activeFields.find((field) => field.key === "birth_year");
+      const birthYear = birthYearField ? Number(dynamic_answers[birthYearField.id]) : NaN;
+      if (!Number.isInteger(birthYear) || !classItem.eligible_birth_years.includes(birthYear)) {
+        res.status(400).json({ error: "O dia e hor\xE1rio selecionado n\xE3o \xE9 permitido para o ano de nascimento informado." });
+        return;
+      }
+    }
+    if (classItem) {
+      const genderField = activeFields.find((field) => field.key === "selection_gender");
+      const selectedGender = genderField ? String(dynamic_answers[genderField.id] || "").trim() : "";
+      if (!selectedGender || !classItem.gender.toUpperCase().includes(selectedGender.toUpperCase())) {
+        res.status(400).json({ error: "O dia e hor\xE1rio selecionado n\xE3o corresponde \xE0 categoria Masculino/Feminino informada." });
+        return;
+      }
+    }
+    if ((sizeField?.required || appearance.payment_enabled) && !shirt_size_id) {
       res.status(400).json({ error: "A sele\xE7\xE3o do tamanho da camiseta \xE9 obrigat\xF3ria." });
       return;
     }
-    const shirtSize = db.getShirtSizeById(shirt_size_id);
-    if (!shirtSize || !shirtSize.active) {
+    const shirtSize = shirt_size_id ? db.getShirtSizeById(shirt_size_id) : void 0;
+    if (shirt_size_id && (!shirtSize || !shirtSize.active)) {
       res.status(400).json({ error: "O tamanho de camiseta selecionado n\xE3o \xE9 v\xE1lido ou foi desativado." });
       return;
     }
-    const activeFields = db.getFormFields(true);
     const answersToSave = [];
-    const fullNameField = activeFields.find((f) => f.key === "full_name");
-    answersToSave.push({
-      field_id: fullNameField ? fullNameField.id : "system_full_name",
-      field_key_snapshot: "full_name",
-      label_snapshot: fullNameField ? fullNameField.label : "Nome completo",
-      value: trimmedName
-    });
-    const classField = activeFields.find((f) => f.key === "class_id");
-    answersToSave.push({
-      field_id: classField ? classField.id : "system_class_id",
-      field_key_snapshot: "class_id",
-      label_snapshot: classField ? classField.label : "Unidade/Turma",
-      value: classItem.display_label
-    });
-    const sizeField = activeFields.find((f) => f.key === "shirt_size_id");
-    answersToSave.push({
-      field_id: sizeField ? sizeField.id : "system_shirt_size_id",
-      field_key_snapshot: "shirt_size_id",
-      label_snapshot: sizeField ? sizeField.label : "Tamanho camiseta",
-      value: `${shirtSize.code} (${shirtSize.category === "adult" ? "Adulto" : "Infantil"}) - ${shirtSize.width_cm}x${shirtSize.length_cm} cm`
-    });
+    if (fullNameField && trimmedName) {
+      answersToSave.push({
+        field_id: fullNameField.id,
+        field_key_snapshot: "full_name",
+        label_snapshot: fullNameField.label,
+        value: trimmedName
+      });
+    }
+    if (classField && classItem) {
+      answersToSave.push({
+        field_id: classField.id,
+        field_key_snapshot: "class_id",
+        label_snapshot: classField.label,
+        value: classItem.display_label
+      });
+    }
+    if (sizeField && shirtSize) {
+      answersToSave.push({
+        field_id: sizeField.id,
+        field_key_snapshot: "shirt_size_id",
+        label_snapshot: sizeField.label,
+        value: `${shirtSize.code} (${shirtSize.category === "adult" ? "Adulto" : "Infantil"}) - ${shirtSize.width_cm}x${shirtSize.length_cm} cm`
+      });
+    }
     const customAnswers = dynamic_answers && typeof dynamic_answers === "object" ? dynamic_answers : {};
     for (const field of activeFields) {
       if (field.system_type) continue;
+      if (!isFieldVisible(field, customAnswers)) continue;
       const rawVal = customAnswers[field.id];
-      const valStr = rawVal !== void 0 && rawVal !== null ? String(rawVal).trim() : "";
+      let valStr = Array.isArray(rawVal) ? rawVal.map(String).map((value) => value.trim()).filter(Boolean).join(", ") : rawVal !== void 0 && rawVal !== null ? String(rawVal).trim() : "";
+      if (field.key === "rg" && valStr) {
+        valStr = valStr.replace(/\D/g, "");
+        if (valStr.length < 7 || valStr.length > 14) {
+          res.status(400).json({ error: "Informe um RG v\xE1lido com 7 a 14 n\xFAmeros." });
+          return;
+        }
+        if (db.findRegistrationByAnswer("rg", valStr)) {
+          res.status(409).json({ error: "J\xE1 existe uma inscri\xE7\xE3o cadastrada para este RG.", code: "duplicate_rg" });
+          return;
+        }
+      }
+      if (field.key === "birth_year" && valStr) {
+        const year = Number(valStr);
+        if (!Number.isInteger(year) || year < 1900 || year > (/* @__PURE__ */ new Date()).getFullYear()) {
+          res.status(400).json({ error: "Informe um ano de nascimento v\xE1lido com quatro d\xEDgitos." });
+          return;
+        }
+      }
+      if (field.key === "selection_gender" && !["Masculino", "Feminino"].includes(valStr)) {
+        res.status(400).json({ error: "Selecione uma categoria v\xE1lida: Masculino ou Feminino." });
+        return;
+      }
       if (field.required && !valStr) {
         res.status(400).json({ error: `O campo "${field.label}" \xE9 obrigat\xF3rio.` });
         return;
@@ -1114,23 +1484,23 @@ apiRouter.post("/registrations", registrationLimiter, (req, res) => {
         });
       }
     }
-    const shirt_price = db.getShirtPrice();
+    const amount = appearance.payment_enabled ? db.getShirtPrice() : 0;
+    const confirmedAt = appearance.payment_enabled ? void 0 : (/* @__PURE__ */ new Date()).toISOString();
     const registration = db.createRegistration(
       {
         submission_attempt_id: attempt_id,
-        participant_name: trimmedName,
-        class_id: classItem.id,
-        class_label_snapshot: classItem.display_label,
-        shirt_size_id: shirtSize.id,
-        shirt_size_code_snapshot: shirtSize.code,
-        shirt_width_cm_snapshot: shirtSize.width_cm,
-        shirt_length_cm_snapshot: shirtSize.length_cm,
-        shirt_category_snapshot: shirtSize.category,
+        participant_name: trimmedName || "Participante",
+        class_id: classItem?.id || "",
+        class_label_snapshot: classItem?.display_label || "",
+        shirt_size_id: shirtSize?.id || "",
+        shirt_size_code_snapshot: shirtSize?.code || "",
+        shirt_width_cm_snapshot: shirtSize?.width_cm || 0,
+        shirt_length_cm_snapshot: shirtSize?.length_cm || 0,
+        shirt_category_snapshot: shirtSize?.category || "adult",
         shirt_quantity: 1,
-        // Rule 1: always 1
-        amount: shirt_price,
-        // Preserved snapshot
-        status: "pending_payment"
+        amount,
+        status: appearance.payment_enabled ? "pending_payment" : "confirmed",
+        confirmed_at: confirmedAt
       },
       answersToSave
     );
@@ -1144,7 +1514,8 @@ apiRouter.post("/registrations", registrationLimiter, (req, res) => {
         shirt_category: registration.shirt_category_snapshot,
         amount: registration.amount,
         status: registration.status
-      }
+      },
+      requires_payment: appearance.payment_enabled
     });
   } catch (err) {
     console.error("Error in /api/registrations:", err);
@@ -1927,12 +2298,61 @@ apiRouter.get("/admin/export", requireAdminAuth, (req, res) => {
   res.setHeader("Content-Disposition", 'attachment; filename="inscricoes-ultra-volleyball.csv"');
   res.send(csvContent);
 });
+apiRouter.get("/admin/form-appearance", requireAdminAuth, (_req, res) => {
+  res.json(db.getFormAppearance());
+});
+apiRouter.put("/admin/form-appearance", requireAdminAuth, (req, res) => {
+  try {
+    const textSettings = {
+      eyebrow: { key: "form_eyebrow", max: 80 },
+      title: { key: "form_title", max: 120 },
+      description: { key: "form_description", max: 600 },
+      primary_logo_url: { key: "form_primary_logo_url", max: 2048 },
+      secondary_logo_url: { key: "form_secondary_logo_url", max: 2048 },
+      header_banner_url: { key: "form_header_banner_url", max: 2048 },
+      submit_label: { key: "form_submit_label", max: 80 },
+      success_title: { key: "form_success_title", max: 120 },
+      success_description: { key: "form_success_description", max: 600 },
+      maps_api_key: { key: "form_maps_api_key", max: 256 },
+      location_bsc_address: { key: "form_location_bsc_address", max: 500 },
+      location_colegio_address: { key: "form_location_colegio_address", max: 500 }
+    };
+    for (const [bodyKey, setting] of Object.entries(textSettings)) {
+      if (req.body[bodyKey] === void 0) continue;
+      const value = String(req.body[bodyKey]).trim();
+      if (value.length > setting.max) {
+        res.status(400).json({ error: `O campo ${bodyKey} excede o limite permitido.` });
+        return;
+      }
+      if ((bodyKey.includes("logo") || bodyKey.includes("banner")) && value && !/^(https?:\/\/|\/)/i.test(value)) {
+        res.status(400).json({ error: "Use uma URL http(s) ou um caminho iniciado por / para os logos." });
+        return;
+      }
+      db.setSetting(setting.key, value);
+    }
+    if (req.body.payment_enabled !== void 0) {
+      const paymentEnabled = Boolean(req.body.payment_enabled);
+      db.setSetting("form_payment_enabled", paymentEnabled ? "true" : "false");
+      if (paymentEnabled) {
+        const shirtField = db.getFormFields(false).find((field) => field.system_type === "shirt_size_id");
+        if (shirtField) db.updateFormField(shirtField.id, { active: true, required: true });
+      }
+    }
+    if (req.body.maps_enabled !== void 0) {
+      db.setSetting("form_maps_enabled", req.body.maps_enabled ? "true" : "false");
+    }
+    res.json(db.getFormAppearance());
+  } catch (err) {
+    console.error("Error updating form appearance:", err);
+    res.status(500).json({ error: "Erro ao atualizar a apresenta\xE7\xE3o do formul\xE1rio" });
+  }
+});
 apiRouter.get("/admin/form-fields", requireAdminAuth, (req, res) => {
   res.json(db.getFormFields(false));
 });
 apiRouter.post("/admin/form-fields", requireAdminAuth, (req, res) => {
   try {
-    const { label, description, field_type, placeholder, required, options } = req.body;
+    const { label, description, field_type, placeholder, required, options, show_when } = req.body;
     if (!label || !field_type) {
       res.status(400).json({ error: "Pergunta e tipo s\xE3o obrigat\xF3rios" });
       return;
@@ -1948,7 +2368,8 @@ apiRouter.post("/admin/form-fields", requireAdminAuth, (req, res) => {
       required: Boolean(required),
       active: true,
       sort_order: count + 1,
-      options: Array.isArray(options) ? options : []
+      options: Array.isArray(options) ? options : [],
+      show_when: show_when?.field_id ? show_when : void 0
     });
     res.status(201).json(newField);
   } catch (err) {
@@ -1988,7 +2409,7 @@ apiRouter.get("/admin/classes", requireAdminAuth, (req, res) => {
 });
 apiRouter.post("/admin/classes", requireAdminAuth, (req, res) => {
   try {
-    const { display_label, unit, category, gender, level, weekday, start_time } = req.body;
+    const { display_label, unit, category, gender, level, weekday, start_time, eligible_birth_years } = req.body;
     if (!display_label) {
       res.status(400).json({ error: "Nome/descri\xE7\xE3o da turma \xE9 obrigat\xF3rio" });
       return;
@@ -2002,6 +2423,7 @@ apiRouter.post("/admin/classes", requireAdminAuth, (req, res) => {
       level: level || "GERAL",
       weekday: weekday || "",
       start_time: start_time || "",
+      eligible_birth_years: Array.isArray(eligible_birth_years) ? eligible_birth_years.map(Number).filter(Number.isInteger) : [],
       active: true,
       sort_order: count + 1
     });
@@ -2238,6 +2660,7 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3e3);
   const isProd = process.env.NODE_ENV === "production";
+  const staticMode = isProd || process.argv.includes("--static");
   if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
     throw new Error("PORT deve ser um n\xFAmero inteiro entre 1 e 65535");
   }
@@ -2250,7 +2673,7 @@ async function startServer() {
     res.json({ status: "ok" });
   });
   app.use("/api", apiRouter);
-  if (!isProd) {
+  if (!staticMode) {
     const { createServer } = await import("vite");
     const vite = await createServer({
       server: { middlewareMode: true },
@@ -2265,7 +2688,7 @@ async function startServer() {
     });
   }
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Ultra Volleyball Server] Running on http://0.0.0.0:${PORT}`);
+    console.log(`[Ultra Volleyball Server] Abra no navegador: http://localhost:${PORT}`);
   });
 }
 startServer().catch((err) => {

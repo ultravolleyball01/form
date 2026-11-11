@@ -1,6 +1,7 @@
 import type {
   ClassItem,
   FormField,
+  FormAppearance,
   PublicFormConfig,
   Registration,
   RegistrationWithDetails,
@@ -52,8 +53,8 @@ export const api = {
   async createRegistration(data: {
     attempt_id?: string;
     full_name: string;
-    class_id: string;
-    shirt_size_id: string;
+    class_id?: string;
+    shirt_size_id?: string;
     dynamic_answers: Record<string, any>;
   }) {
     const res = await fetch('/api/registrations', {
@@ -171,6 +172,22 @@ export const api = {
     });
     if (!res.ok) throw new Error('Falha ao carregar perguntas');
     return res.json();
+  },
+
+  async getAdminFormAppearance(): Promise<FormAppearance> {
+    const res = await fetch('/api/admin/form-appearance', {
+      headers: this.getAuthHeaders(),
+    });
+    return readJsonResponse<FormAppearance>(res, 'Falha ao carregar a apresentação do formulário');
+  },
+
+  async updateFormAppearance(settings: Partial<FormAppearance>): Promise<FormAppearance> {
+    const res = await fetch('/api/admin/form-appearance', {
+      method: 'PUT',
+      headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
+    return readJsonResponse<FormAppearance>(res, 'Erro ao atualizar a apresentação do formulário');
   },
 
   async createFormField(field: Partial<FormField>) {

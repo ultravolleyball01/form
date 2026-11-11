@@ -18,6 +18,7 @@ export const AdminClassesPage: React.FC = () => {
   const [level, setLevel] = useState('INICIANTE');
   const [weekday, setWeekday] = useState('SEGUNDA');
   const [startTime, setStartTime] = useState('09:00');
+  const [eligibleBirthYears, setEligibleBirthYears] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -46,6 +47,7 @@ export const AdminClassesPage: React.FC = () => {
     setLevel('INICIANTE');
     setWeekday('SEGUNDA');
     setStartTime('09:00');
+    setEligibleBirthYears('');
     setError('');
     setModalOpen(true);
   };
@@ -59,6 +61,7 @@ export const AdminClassesPage: React.FC = () => {
     setLevel(c.level);
     setWeekday(c.weekday);
     setStartTime(c.start_time);
+    setEligibleBirthYears(c.eligible_birth_years?.join(', ') || '');
     setError('');
     setModalOpen(true);
   };
@@ -68,12 +71,16 @@ export const AdminClassesPage: React.FC = () => {
     setError('');
 
     if (!displayLabel.trim()) {
-      setError('O nome/descrição da turma é obrigatório.');
+      setError('O nome/descrição do local e horário é obrigatório.');
       return;
     }
 
     try {
       setSaving(true);
+      const parsedBirthYears = eligibleBirthYears
+        .split(',')
+        .map((value) => Number(value.trim()))
+        .filter((value) => Number.isInteger(value));
       if (editingClass) {
         await api.updateClass(editingClass.id, {
           display_label: displayLabel.trim(),
@@ -83,6 +90,7 @@ export const AdminClassesPage: React.FC = () => {
           level,
           weekday,
           start_time: startTime,
+          eligible_birth_years: parsedBirthYears,
         });
       } else {
         await api.createClass({
@@ -93,6 +101,7 @@ export const AdminClassesPage: React.FC = () => {
           level,
           weekday,
           start_time: startTime,
+          eligible_birth_years: parsedBirthYears,
         });
       }
       setModalOpen(false);
@@ -123,10 +132,10 @@ export const AdminClassesPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">
-            Unidades e Turmas
+            Locais e horários
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Gerencie os horários e polos de treino da Ultra Volleyball ({classes.length} cadastradas)
+            Cadastre as opções que aparecerão no formulário da peneira ({classes.length} cadastradas)
           </p>
         </div>
 
@@ -136,7 +145,7 @@ export const AdminClassesPage: React.FC = () => {
           className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Cadastrar Turma</span>
+          <span>Cadastrar opção</span>
         </button>
       </div>
 
@@ -145,7 +154,7 @@ export const AdminClassesPage: React.FC = () => {
         <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
         <input
           type="text"
-          placeholder="Pesquisar turma por nome, unidade ou dia..."
+          placeholder="Pesquisar por local, unidade, dia ou horário..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-blue-600"
@@ -158,7 +167,7 @@ export const AdminClassesPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4">Turma / Descrição</th>
+                <th className="py-3 px-4">Local / Descrição</th>
                 <th className="py-3 px-4">Unidade</th>
                 <th className="py-3 px-4">Categoria</th>
                 <th className="py-3 px-4">Horário / Dia</th>
@@ -170,13 +179,13 @@ export const AdminClassesPage: React.FC = () => {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
-                    Carregando turmas...
+                    Carregando locais e horários...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
-                    Nenhuma turma encontrada.
+                    Nenhuma opção encontrada.
                   </td>
                 </tr>
               ) : (
@@ -210,7 +219,7 @@ export const AdminClassesPage: React.FC = () => {
                             ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                             : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                         }`}
-                        title="Ativar ou desativar turma"
+                        title="Ativar ou desativar opção"
                       >
                         {c.active ? (
                           <>
@@ -250,7 +259,7 @@ export const AdminClassesPage: React.FC = () => {
           >
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="text-base font-black uppercase tracking-tight text-slate-900">
-                {editingClass ? 'Editar Turma' : 'Cadastrar Nova Turma'}
+                {editingClass ? 'Editar local e horário' : 'Cadastrar local e horário'}
               </h3>
               <button
                 onClick={() => setModalOpen(false)}
@@ -270,7 +279,7 @@ export const AdminClassesPage: React.FC = () => {
             <form onSubmit={handleSave} className="space-y-4 py-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Nome Completo de Exibição da Turma *
+                  Texto completo exibido no formulário *
                 </label>
                 <input
                   type="text"
@@ -310,6 +319,20 @@ export const AdminClassesPage: React.FC = () => {
                     <option value="GERAL">GERAL</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Anos de nascimento permitidos
+                </label>
+                <input
+                  type="text"
+                  value={eligibleBirthYears}
+                  onChange={(e) => setEligibleBirthYears(e.target.value)}
+                  placeholder="Ex: 2013, 2014"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Separe os anos por vírgula. O dropdown público usa esta lista para filtrar os horários.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -381,7 +404,7 @@ export const AdminClassesPage: React.FC = () => {
                   disabled={saving}
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider shadow transition-all cursor-pointer"
                 >
-                  {saving ? 'Salvando...' : 'Salvar Turma'}
+                  {saving ? 'Salvando...' : 'Salvar opção'}
                 </button>
               </div>
             </form>

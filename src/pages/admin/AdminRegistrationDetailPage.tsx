@@ -66,7 +66,9 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
 
   const isConfirmed = data.status === 'confirmed';
   const isCancelled = data.status === 'cancelled';
-  const canManagePayment = !isConfirmed && !isCancelled && data.payment?.status !== 'paid';
+  const hasShirt = Boolean(data.shirt_size_code_snapshot);
+  const hasPayment = data.amount > 0 || Boolean(data.payment);
+  const canManagePayment = hasPayment && !isConfirmed && !isCancelled && data.payment?.status !== 'paid';
 
   return (
     <div className="space-y-6">
@@ -111,23 +113,23 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
           <h1 className="text-2xl font-black text-slate-900 mt-2">
             {data.participant_name}
           </h1>
-          <p className="text-xs font-semibold text-blue-700 mt-0.5">
+          {data.class_label_snapshot && <p className="text-xs font-semibold text-blue-700 mt-0.5">
             {data.class_label_snapshot}
-          </p>
+          </p>}
         </div>
 
-        <div className="text-right sm:border-l sm:border-slate-100 sm:pl-6">
+        {hasPayment && <div className="text-right sm:border-l sm:border-slate-100 sm:pl-6">
           <span className="text-xs text-slate-400 block font-medium">Valor da Inscrição</span>
           <span className="text-2xl font-black text-slate-900">
             R$ {(data.amount / 100).toFixed(2).replace('.', ',')}
           </span>
-          <span className="text-[11px] text-slate-400 block mt-0.5">Qtd: 1 camiseta</span>
-        </div>
+          {hasShirt && <span className="text-[11px] text-slate-400 block mt-0.5">Qtd: 1 camiseta</span>}
+        </div>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* SECTION 1: Perguntas e Respostas Dinâmicas (Rule 56 & 57) */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+        <div className={`bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4 ${!hasShirt && !hasPayment ? 'md:col-span-2' : ''}`}>
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
             <ClipboardList className="w-4 h-4 text-blue-600" />
             <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-900">
@@ -161,8 +163,8 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
         </div>
 
         {/* SECTION 2: Camiseta e Medidas (Rule 56) */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+        {(hasShirt || hasPayment) && <div className="space-y-6">
+          {hasShirt && <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
               <Shirt className="w-4 h-4 text-amber-500" />
               <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-900">
@@ -196,10 +198,10 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
                 </span>
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* SECTION 3: Pagamento InfinitePay (Rule 56) */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+          {hasPayment && <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
               <CreditCard className="w-4 h-4 text-emerald-600" />
               <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-900">
@@ -332,8 +334,8 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
                 </button>
               </div>
             )}
-          </div>
-        </div>
+          </div>}
+        </div>}
       </div>
     </div>
   );
