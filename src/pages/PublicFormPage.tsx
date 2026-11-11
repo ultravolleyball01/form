@@ -495,9 +495,7 @@ const LocationPreview: React.FC<{ selectedClass: ClassItem; appearance: FormAppe
   const mapsUrl = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
     : '';
-  const embedUrl = address && appearance.maps_api_key
-    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(appearance.maps_api_key)}&q=${encodeURIComponent(address)}`
-    : '';
+  const embedUrl = isBsc ? appearance.maps_bsc_embed_url : appearance.maps_colegio_embed_url;
 
   return (
     <div className="rounded-2xl border border-blue-200 bg-blue-50/70 overflow-hidden">
@@ -514,9 +512,13 @@ const LocationPreview: React.FC<{ selectedClass: ClassItem; appearance: FormAppe
                 Ver rota no Google Maps <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </>
+          ) : appearance.maps_enabled && embedUrl ? (
+            <p className="text-xs text-blue-700 mt-0.5">
+              Consulte o mapa abaixo para visualizar o local da peneira.
+            </p>
           ) : (
             <p className="text-xs text-blue-700 mt-0.5">
-              Integração com o Google Maps preparada. O endereço será exibido assim que for configurado.
+              O endereço será exibido assim que for configurado.
             </p>
           )}
         </div>
@@ -527,7 +529,7 @@ const LocationPreview: React.FC<{ selectedClass: ClassItem; appearance: FormAppe
           src={embedUrl}
           className="w-full h-64 border-0"
           loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
+          referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
         />
       )}

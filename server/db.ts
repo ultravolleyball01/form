@@ -153,8 +153,11 @@ const FORM_SETTING_DEFAULTS: Record<string, string> = {
   form_success_description:
     'Seu cadastro para a peneira foi realizado. Guarde o código da inscrição e aguarde as orientações da equipe Ultra.',
   form_payment_enabled: 'false',
-  form_maps_enabled: 'false',
-  form_maps_api_key: '',
+  form_maps_enabled: 'true',
+  form_maps_bsc_embed_url:
+    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3657.640436636719!2d-46.50963532474073!3d-23.545431461007226!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce67521357b17b%3A0x234b765aea113e15!2sGrupo%20Batalha%20-%20Academia%20Vila%20Matilde!5e0!3m2!1spt-BR!2sbr!4v1794359798576!5m2!1spt-BR!2sbr',
+  form_maps_colegio_embed_url:
+    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3657.640436636719!2d-46.50963532474073!3d-23.545431461007226!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce67521357b17b%3A0x234b765aea113e15!2sGrupo%20Batalha%20-%20Academia%20Vila%20Matilde!5e0!3m2!1spt-BR!2sbr!4v1794359798576!5m2!1spt-BR!2sbr',
   form_location_bsc_address: '',
   form_location_colegio_address: '',
 };
@@ -179,6 +182,24 @@ function ensureGeneralFormDefaults(source: DatabaseSchema): DatabaseSchema {
   };
 
   Object.entries(FORM_SETTING_DEFAULTS).forEach(([key, value]) => addSetting(key, value));
+
+  // One-time migration from the API-key placeholder to the simpler Maps embed.
+  if (!getSetting('google_maps_embed_version')) {
+    setSetting('form_maps_enabled', 'true');
+    setSetting('form_maps_bsc_embed_url', FORM_SETTING_DEFAULTS.form_maps_bsc_embed_url);
+    setSetting('form_maps_colegio_embed_url', FORM_SETTING_DEFAULTS.form_maps_colegio_embed_url);
+    addSetting('google_maps_embed_version', '1');
+  }
+
+  // The existing database belongs to the previous shirt-registration form.
+  // Archive that snapshot once so the athlete-selection operation starts clean.
+  if (!getSetting('pre_selection_registrations_archive_version')) {
+    for (const registration of data.registrations) {
+      registration.archived_at ||= now;
+      registration.updated_at = now;
+    }
+    addSetting('pre_selection_registrations_archive_version', '1');
+  }
 
   if (!getSetting('general_form_version')) {
     const fullName = data.form_fields.find((field) => field.key === 'full_name');
@@ -396,6 +417,23 @@ function ensureGeneralFormDefaults(source: DatabaseSchema): DatabaseSchema {
     setSetting('selection_schedule_version', '3');
   }
 
+  if (Number(getSetting('selection_schedule_version')?.value || '0') < 4) {
+    const birthYearField = data.form_fields.find((field) => field.key === 'birth_year');
+    if (birthYearField) {
+      Object.assign(birthYearField, {
+        label: 'Ano de nascimento',
+        description: 'Selecione um dos anos aceitos na seletiva',
+        field_type: 'select' as const,
+        placeholder: 'Selecione o ano de nascimento',
+        required: true,
+        active: true,
+        options: ['2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2009'],
+        updated_at: now,
+      });
+    }
+    setSetting('selection_schedule_version', '4');
+  }
+
   return data;
 }
 
@@ -581,7 +619,14 @@ class Database {
       ),
       payment_enabled: this.getSetting('form_payment_enabled', 'false') === 'true',
       maps_enabled: this.getSetting('form_maps_enabled', 'false') === 'true',
-      maps_api_key: this.getSetting('form_maps_api_key', ''),
+      maps_bsc_embed_url: this.getSetting(
+        'form_maps_bsc_embed_url',
+        FORM_SETTING_DEFAULTS.form_maps_bsc_embed_url
+      ),
+      maps_colegio_embed_url: this.getSetting(
+        'form_maps_colegio_embed_url',
+        FORM_SETTING_DEFAULTS.form_maps_colegio_embed_url
+      ),
       location_bsc_address: this.getSetting('form_location_bsc_address', ''),
       location_colegio_address: this.getSetting('form_location_colegio_address', ''),
     };
@@ -625,7 +670,7 @@ class Database {
   }
 
   public hasRegistrationsForClass(classId: string): boolean {
-    return this.data.registrations.some((r) => r.class_id === classId);
+    return this.data.registrations.some((r) => r.class_id === classId && !r.archived_at);
   }
 
   // Sizes
@@ -772,13 +817,17 @@ class Database {
 
   public findRegistrationByAnswer(fieldKey: string, value: string): Registration | undefined {
     const answer = this.data.registration_answers.find(
-      (item) => item.field_key_snapshot === fieldKey && item.value === value
+      (item) => {
+        if (item.field_key_snapshot !== fieldKey || item.value !== value) return false;
+        const registration = this.data.registrations.find((entry) => entry.id === item.registration_id);
+        return Boolean(registration && !registration.archived_at);
+      }
     );
     return answer ? this.getRegistrationById(answer.registration_id) : undefined;
   }
 
-  public getRegistrations(): Registration[] {
-    return this.data.registrations.slice().sort((a, b) => {
+  public getRegistrations(includeArchived = false): Registration[] {
+    return this.data.registrations.filter((item) => includeArchived || !item.archived_at).sort((a, b) => {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }

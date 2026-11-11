@@ -99,7 +99,8 @@ export interface FormAppearance {
   success_description: string;
   payment_enabled: boolean;
   maps_enabled: boolean;
-  maps_api_key: string;
+  maps_bsc_embed_url: string;
+  maps_colegio_embed_url: string;
   location_bsc_address: string;
   location_colegio_address: string;
 }
@@ -122,6 +123,7 @@ export interface Registration {
   created_at: string;
   updated_at: string;
   confirmed_at?: string;
+  archived_at?: string;
 }
 
 export interface RegistrationAnswer {

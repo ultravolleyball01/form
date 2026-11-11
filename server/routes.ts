@@ -1129,7 +1129,10 @@ apiRouter.get('/admin/camisas', requireAdminAuth, (req, res) => {
 apiRouter.get('/api/admin/export', requireAdminAuth, (req, res) => {
   try {
     const regs = db.getRegistrations();
-    const allAnswers = db.getAllData().registration_answers;
+    const activeRegistrationIds = new Set(regs.map((registration) => registration.id));
+    const allAnswers = db.getAllData().registration_answers.filter((answer) =>
+      activeRegistrationIds.has(answer.registration_id)
+    );
     const payments = db.getAllData().payments;
 
     // Collect all dynamic question labels used across history
@@ -1231,7 +1234,10 @@ apiRouter.get('/api/admin/export', requireAdminAuth, (req, res) => {
 apiRouter.get('/admin/export', requireAdminAuth, (req, res) => {
   // forward to the same export handler above
   const regs = db.getRegistrations();
-  const allAnswers = db.getAllData().registration_answers;
+  const activeRegistrationIds = new Set(regs.map((registration) => registration.id));
+  const allAnswers = db.getAllData().registration_answers.filter((answer) =>
+    activeRegistrationIds.has(answer.registration_id)
+  );
   const payments = db.getAllData().payments;
 
   const customLabelsSet = new Set<string>();
@@ -1341,7 +1347,8 @@ apiRouter.put('/admin/form-appearance', requireAdminAuth, (req, res) => {
       submit_label: { key: 'form_submit_label', max: 80 },
       success_title: { key: 'form_success_title', max: 120 },
       success_description: { key: 'form_success_description', max: 600 },
-      maps_api_key: { key: 'form_maps_api_key', max: 256 },
+      maps_bsc_embed_url: { key: 'form_maps_bsc_embed_url', max: 2_048 },
+      maps_colegio_embed_url: { key: 'form_maps_colegio_embed_url', max: 2_048 },
       location_bsc_address: { key: 'form_location_bsc_address', max: 500 },
       location_colegio_address: { key: 'form_location_colegio_address', max: 500 },
     };
@@ -1356,6 +1363,17 @@ apiRouter.put('/admin/form-appearance', requireAdminAuth, (req, res) => {
       if ((bodyKey.includes('logo') || bodyKey.includes('banner')) && value && !/^(https?:\/\/|\/)/i.test(value)) {
         res.status(400).json({ error: 'Use uma URL http(s) ou um caminho iniciado por / para os logos.' });
         return;
+      }
+      if (bodyKey.endsWith('_embed_url') && value) {
+        try {
+          const url = new URL(value);
+          if (url.protocol !== 'https:' || url.hostname !== 'www.google.com' || !url.pathname.startsWith('/maps/embed')) {
+            throw new Error('invalid maps embed URL');
+          }
+        } catch {
+          res.status(400).json({ error: 'Use uma URL de incorporação válida do Google Maps.' });
+          return;
+        }
       }
       db.setSetting(setting.key, value);
     }

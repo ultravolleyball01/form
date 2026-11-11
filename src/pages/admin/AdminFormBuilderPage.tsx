@@ -6,7 +6,7 @@ import { AlertCircle, ArrowDown, ArrowUp, Check, Edit2, Eye, Image, Plus, Save, 
 const EMPTY_APPEARANCE: FormAppearance = {
   eyebrow: '', title: '', description: '', primary_logo_url: '', secondary_logo_url: '',
   header_banner_url: '', submit_label: '', success_title: '', success_description: '', payment_enabled: false,
-  maps_enabled: false, maps_api_key: '', location_bsc_address: '', location_colegio_address: '',
+  maps_enabled: false, maps_bsc_embed_url: '', maps_colegio_embed_url: '', location_bsc_address: '', location_colegio_address: '',
 };
 
 export const AdminFormBuilderPage: React.FC = () => {
@@ -142,9 +142,10 @@ export const AdminFormBuilderPage: React.FC = () => {
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2"><div><p className="text-xs font-bold text-slate-700">Pagamento de camiseta</p><p className="text-[11px] text-slate-500">Mantenha desligado para cadastros gratuitos. Ao ligar, a pergunta de tamanho é ativada automaticamente.</p></div><button type="button" onClick={() => setAppearance({ ...appearance, payment_enabled: !appearance.payment_enabled })} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-bold cursor-pointer ${appearance.payment_enabled ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}><span className={`w-8 h-4 rounded-full p-0.5 ${appearance.payment_enabled ? 'bg-amber-500' : 'bg-slate-300'}`}><span className={`block w-3 h-3 rounded-full bg-white transition-transform ${appearance.payment_enabled ? 'translate-x-4' : ''}`} /></span>{appearance.payment_enabled ? 'Ligado' : 'Desligado'}</button></div>
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className="text-xs font-bold text-slate-700">Integração Google Maps</p><p className="text-[11px] text-slate-500">Preencha os endereços quando estiverem definidos. Restrinja a chave da API ao domínio do formulário.</p></div><button type="button" onClick={() => setAppearance({ ...appearance, maps_enabled: !appearance.maps_enabled })} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-bold cursor-pointer ${appearance.maps_enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>{appearance.maps_enabled ? 'Mapa ativo' : 'Mapa desativado'}</button></div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className="text-xs font-bold text-slate-700">Mapa incorporado do Google</p><p className="text-[11px] text-slate-500">Não exige chave de API. O mapa aparece abaixo do local e horário selecionados.</p></div><button type="button" onClick={() => setAppearance({ ...appearance, maps_enabled: !appearance.maps_enabled })} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-bold cursor-pointer ${appearance.maps_enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>{appearance.maps_enabled ? 'Mapa ativo' : 'Mapa desativado'}</button></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="md:col-span-2"><FieldInput label="Chave da Google Maps Embed API" value={appearance.maps_api_key} onChange={(value) => setAppearance({ ...appearance, maps_api_key: value })} placeholder="Será informada posteriormente" /></div>
+          <FieldInput label="Mapa incorporado do BSC" value={appearance.maps_bsc_embed_url} onChange={(value) => setAppearance({ ...appearance, maps_bsc_embed_url: value })} placeholder="https://www.google.com/maps/embed?..." />
+          <FieldInput label="Mapa incorporado do Colégio" value={appearance.maps_colegio_embed_url} onChange={(value) => setAppearance({ ...appearance, maps_colegio_embed_url: value })} placeholder="https://www.google.com/maps/embed?..." />
           <FieldInput label="Endereço do BSC" value={appearance.location_bsc_address} onChange={(value) => setAppearance({ ...appearance, location_bsc_address: value })} placeholder="Endereço completo" />
           <FieldInput label="Endereço do Colégio" value={appearance.location_colegio_address} onChange={(value) => setAppearance({ ...appearance, location_colegio_address: value })} placeholder="Endereço completo" />
         </div>
