@@ -1,9 +1,14 @@
 import type { FormField } from '../types';
+import { extractSubNumber } from './selection-category';
 
-function comparableNumber(value: unknown): number | undefined {
+function comparableNumber(value: unknown, preferSub: boolean): number | undefined {
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
   const text = String(value ?? '').trim().replace(',', '.');
   if (!text) return undefined;
+  if (preferSub) {
+    const sub = extractSubNumber(text);
+    if (sub) return Number(sub);
+  }
   if (/^[+-]?\d+(?:\.\d+)?$/.test(text)) {
     const parsed = Number(text);
     return Number.isFinite(parsed) ? parsed : undefined;
@@ -12,6 +17,26 @@ function comparableNumber(value: unknown): number | undefined {
   // Dropdown labels may contain a year together with descriptive text.
   const year = text.match(/(?:^|\D)(\d{4})(?:\D|$)/)?.[1];
   return year ? Number(year) : undefined;
+}
+
+function normalizedBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  const text = String(value ?? '').trim().toLocaleLowerCase('pt-BR');
+  if (['true', 'sim', 'yes', '1', 'on'].includes(text)) return true;
+  if (['false', 'não', 'nao', 'no', '0', 'off'].includes(text)) return false;
+  return undefined;
+}
+
+function equalsExpected(sourceValue: unknown, expected: string): boolean {
+  const values = Array.isArray(sourceValue) ? sourceValue : [sourceValue];
+  const expectedBoolean = normalizedBoolean(expected);
+  return values.some((value) => {
+    const actualBoolean = normalizedBoolean(value);
+    if (expectedBoolean !== undefined && actualBoolean !== undefined) {
+      return actualBoolean === expectedBoolean;
+    }
+    return String(value).trim().toLocaleLowerCase('pt-BR') === expected.toLocaleLowerCase('pt-BR');
+  });
 }
 
 export function isFormFieldVisible(
@@ -24,11 +49,12 @@ export function isFormFieldVisible(
 
   const expected = field.show_when.value.trim();
   if (field.show_when.operator === 'equals') {
-    return String(sourceValue).trim() === expected;
+    return equalsExpected(sourceValue, expected);
   }
 
-  const actualNumber = comparableNumber(sourceValue);
-  const expectedNumber = comparableNumber(expected);
+  const compareAsSub = Boolean(extractSubNumber(expected));
+  const actualNumber = comparableNumber(sourceValue, compareAsSub);
+  const expectedNumber = comparableNumber(expected, compareAsSub);
   if (actualNumber === undefined || expectedNumber === undefined) return false;
 
   switch (field.show_when.operator) {

@@ -77,6 +77,12 @@ export const PublicFormPage: React.FC = () => {
   const birthYearValue = birthYearFieldId ? String(dynamicAnswers[birthYearFieldId] || '') : '';
   const genderFieldId = config?.form_fields.find((field) => field.key === 'selection_gender')?.id;
   const selectedGenderValue = genderFieldId ? String(dynamicAnswers[genderFieldId] || '') : '';
+  const conditionAnswers: Record<string, unknown> = { ...dynamicAnswers };
+  for (const field of config?.form_fields || []) {
+    if (dynamicAnswers[field.id] !== undefined) {
+      conditionAnswers[field.key] = dynamicAnswers[field.id];
+    }
+  }
 
   useEffect(() => {
     if (!config || !classId || !birthYearValue || !selectedGenderValue) return;
@@ -112,7 +118,7 @@ export const PublicFormPage: React.FC = () => {
 
     if (config?.form_fields) {
       for (const field of config.form_fields) {
-        if (!isFormFieldVisible(field, dynamicAnswers)) continue;
+        if (!isFormFieldVisible(field, conditionAnswers)) continue;
         if (field.system_type === 'full_name' && field.required && fullName.trim().length < 3) {
           errors.full_name = 'Por favor, informe seu nome completo (mínimo 3 letras).';
           continue;
@@ -348,7 +354,7 @@ export const PublicFormPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Dynamic Form Questions loaded from DB in sort_order */}
             {config.form_fields.map((field) => {
-              if (!isFormFieldVisible(field, dynamicAnswers)) return null;
+              if (!isFormFieldVisible(field, conditionAnswers)) return null;
               if (field.system_type === 'full_name') {
                 return (
                   <DynamicFieldRenderer

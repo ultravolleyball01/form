@@ -278,10 +278,16 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
 
     // Check custom dynamic fields
     const customAnswers = dynamic_answers && typeof dynamic_answers === 'object' ? dynamic_answers : {};
+    const conditionAnswers: Record<string, unknown> = { ...customAnswers };
+    for (const field of activeFields) {
+      if (customAnswers[field.id] !== undefined) {
+        conditionAnswers[field.key] = customAnswers[field.id];
+      }
+    }
     for (const field of activeFields) {
       if (field.system_type) continue; // Already handled above
 
-      if (!isFormFieldVisible(field, customAnswers)) continue;
+      if (!isFormFieldVisible(field, conditionAnswers)) continue;
 
       const rawVal = customAnswers[field.id];
       let valStr = Array.isArray(rawVal)

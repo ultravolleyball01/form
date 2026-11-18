@@ -1320,43 +1320,6 @@ function requireSameOrigin(req, res, next) {
 // server/routes.ts
 import { z } from "zod";
 
-// src/lib/form-conditions.ts
-function comparableNumber(value) {
-  if (typeof value === "number") return Number.isFinite(value) ? value : void 0;
-  const text = String(value ?? "").trim().replace(",", ".");
-  if (!text) return void 0;
-  if (/^[+-]?\d+(?:\.\d+)?$/.test(text)) {
-    const parsed = Number(text);
-    return Number.isFinite(parsed) ? parsed : void 0;
-  }
-  const year = text.match(/(?:^|\D)(\d{4})(?:\D|$)/)?.[1];
-  return year ? Number(year) : void 0;
-}
-function isFormFieldVisible(field, answers) {
-  if (!field.show_when) return true;
-  const sourceValue = answers[field.show_when.field_id];
-  if (sourceValue === void 0 || sourceValue === null || sourceValue === "") return false;
-  const expected = field.show_when.value.trim();
-  if (field.show_when.operator === "equals") {
-    return String(sourceValue).trim() === expected;
-  }
-  const actualNumber = comparableNumber(sourceValue);
-  const expectedNumber = comparableNumber(expected);
-  if (actualNumber === void 0 || expectedNumber === void 0) return false;
-  switch (field.show_when.operator) {
-    case "greater_than":
-      return actualNumber > expectedNumber;
-    case "greater_than_or_equal":
-      return actualNumber >= expectedNumber;
-    case "less_than":
-      return actualNumber < expectedNumber;
-    case "less_than_or_equal":
-      return actualNumber <= expectedNumber;
-    default:
-      return false;
-  }
-}
-
 // src/lib/selection-category.ts
 function extractSubNumbers(value) {
   const text = String(value ?? "").toUpperCase();
@@ -1375,6 +1338,66 @@ function extractSelectionGender(value) {
   if (/\bFEMININO\b/.test(text)) return "FEMININO";
   if (/\bMASCULINO\b/.test(text)) return "MASCULINO";
   return void 0;
+}
+
+// src/lib/form-conditions.ts
+function comparableNumber(value, preferSub) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : void 0;
+  const text = String(value ?? "").trim().replace(",", ".");
+  if (!text) return void 0;
+  if (preferSub) {
+    const sub = extractSubNumber(text);
+    if (sub) return Number(sub);
+  }
+  if (/^[+-]?\d+(?:\.\d+)?$/.test(text)) {
+    const parsed = Number(text);
+    return Number.isFinite(parsed) ? parsed : void 0;
+  }
+  const year = text.match(/(?:^|\D)(\d{4})(?:\D|$)/)?.[1];
+  return year ? Number(year) : void 0;
+}
+function normalizedBoolean(value) {
+  if (typeof value === "boolean") return value;
+  const text = String(value ?? "").trim().toLocaleLowerCase("pt-BR");
+  if (["true", "sim", "yes", "1", "on"].includes(text)) return true;
+  if (["false", "n\xE3o", "nao", "no", "0", "off"].includes(text)) return false;
+  return void 0;
+}
+function equalsExpected(sourceValue, expected) {
+  const values = Array.isArray(sourceValue) ? sourceValue : [sourceValue];
+  const expectedBoolean = normalizedBoolean(expected);
+  return values.some((value) => {
+    const actualBoolean = normalizedBoolean(value);
+    if (expectedBoolean !== void 0 && actualBoolean !== void 0) {
+      return actualBoolean === expectedBoolean;
+    }
+    return String(value).trim().toLocaleLowerCase("pt-BR") === expected.toLocaleLowerCase("pt-BR");
+  });
+}
+function isFormFieldVisible(field, answers) {
+  if (!field.show_when) return true;
+  const sourceValue = answers[field.show_when.field_id];
+  if (sourceValue === void 0 || sourceValue === null || sourceValue === "") return false;
+  const expected = field.show_when.value.trim();
+  if (field.show_when.operator === "equals") {
+    return equalsExpected(sourceValue, expected);
+  }
+  const compareAsSub = Boolean(extractSubNumber(expected));
+  const actualNumber = comparableNumber(sourceValue, compareAsSub);
+  const expectedNumber = comparableNumber(expected, compareAsSub);
+  if (actualNumber === void 0 || expectedNumber === void 0) return false;
+  switch (field.show_when.operator) {
+    case "greater_than":
+      return actualNumber > expectedNumber;
+    case "greater_than_or_equal":
+      return actualNumber >= expectedNumber;
+    case "less_than":
+      return actualNumber < expectedNumber;
+    case "less_than_or_equal":
+      return actualNumber <= expectedNumber;
+    default:
+      return false;
+  }
 }
 
 // server/routes.ts
@@ -1587,9 +1610,15 @@ apiRouter.post("/registrations", registrationLimiter, (req, res) => {
       });
     }
     const customAnswers = dynamic_answers && typeof dynamic_answers === "object" ? dynamic_answers : {};
+    const conditionAnswers = { ...customAnswers };
+    for (const field of activeFields) {
+      if (customAnswers[field.id] !== void 0) {
+        conditionAnswers[field.key] = customAnswers[field.id];
+      }
+    }
     for (const field of activeFields) {
       if (field.system_type) continue;
-      if (!isFormFieldVisible(field, customAnswers)) continue;
+      if (!isFormFieldVisible(field, conditionAnswers)) continue;
       const rawVal = customAnswers[field.id];
       let valStr = Array.isArray(rawVal) ? rawVal.map(String).map((value) => value.trim()).filter(Boolean).join(", ") : rawVal !== void 0 && rawVal !== null ? String(rawVal).trim() : "";
       if (field.key === "rg" && valStr) {
