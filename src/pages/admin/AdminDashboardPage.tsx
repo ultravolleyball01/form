@@ -201,6 +201,7 @@ export const AdminDashboardPage: React.FC = () => {
               <tr>
                 <th className="py-3 px-4">Código</th>
                 <th className="py-3 px-4">Participante</th>
+                <th className="py-3 px-4">SUB</th>
                 <th className="py-3 px-4">Turma</th>
                 <th className="py-3 px-4">Tamanho</th>
                 <th className="py-3 px-4">Valor</th>
@@ -212,7 +213,7 @@ export const AdminDashboardPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {!data?.recent_registrations?.length ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
                     Nenhuma inscrição registrada ainda.
                   </td>
                 </tr>
@@ -224,6 +225,9 @@ export const AdminDashboardPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-900">
                       {r.participant_name}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap font-black text-violet-800">
+                      {r.selection_sub || '—'}
                     </td>
                     <td className="py-3 px-4 text-slate-600 max-w-[200px] truncate">
                       {r.class_label_snapshot}

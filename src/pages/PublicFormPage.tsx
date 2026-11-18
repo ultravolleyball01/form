@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '../lib/api';
-import type { PublicFormConfig, FormField, FormAppearance, ClassItem } from '../types';
+import type { PublicFormConfig, FormAppearance, ClassItem } from '../types';
 import { DynamicFieldRenderer } from '../components/DynamicFieldRenderer';
 import { SizeGuideModal } from '../components/SizeGuideModal';
+import { isFormFieldVisible } from '../lib/form-conditions';
+import { extractSelectionGender, extractSubNumber, extractSubNumbers } from '../lib/selection-category';
 import {
   ShieldCheck,
   Zap,
@@ -13,6 +15,7 @@ import {
   HelpCircle,
   MapPin,
   ExternalLink,
+  UsersRound,
 } from 'lucide-react';
 
 const PENDING_CHECKOUT_KEY = 'ultra_pending_checkout_v1';
@@ -49,17 +52,6 @@ function clearPendingCheckout(): void {
   }
 }
 
-function isFieldVisible(field: FormField, answers: Record<string, any>): boolean {
-  if (!field.show_when) return true;
-  const sourceValue = answers[field.show_when.field_id];
-  if (sourceValue === undefined || sourceValue === null || sourceValue === '') return false;
-  if (field.show_when.operator === 'equals') return String(sourceValue) === field.show_when.value;
-  const actual = Number(sourceValue);
-  const expected = Number(field.show_when.value);
-  if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false;
-  return field.show_when.operator === 'greater_than_or_equal' ? actual >= expected : actual <= expected;
-}
-
 export const PublicFormPage: React.FC = () => {
   const pendingCheckoutRef = useRef<PendingCheckout | undefined>(undefined);
   const [config, setConfig] = useState<PublicFormConfig | null>(null);
@@ -90,9 +82,15 @@ export const PublicFormPage: React.FC = () => {
     if (!config || !classId || !birthYearValue || !selectedGenderValue) return;
     const selected = config.classes.find((item) => item.id === classId);
     const year = Number(birthYearValue);
-    const matchesYear = !selected?.eligible_birth_years?.length || selected.eligible_birth_years.includes(year);
-    const matchesGender = Boolean(selected?.gender.toUpperCase().includes(selectedGenderValue.toUpperCase()));
-    if (!matchesYear || !matchesGender) {
+    const selectedSub = extractSubNumber(selectedGenderValue);
+    const selectedGender = extractSelectionGender(selectedGenderValue);
+    const matchesCategory = selectedSub
+      ? extractSubNumbers(`${selected?.category || ''} ${selected?.display_label || ''}`).includes(selectedSub)
+      : !selected?.eligible_birth_years?.length || selected.eligible_birth_years.includes(year);
+    const matchesGender = selectedGender
+      ? Boolean(selected?.gender.toUpperCase().includes(selectedGender))
+      : Boolean(selectedGenderValue);
+    if (!matchesCategory || !matchesGender) {
       setClassId('');
     }
   }, [birthYearValue, selectedGenderValue, classId, config]);
@@ -114,7 +112,7 @@ export const PublicFormPage: React.FC = () => {
 
     if (config?.form_fields) {
       for (const field of config.form_fields) {
-        if (!isFieldVisible(field, dynamicAnswers)) continue;
+        if (!isFormFieldVisible(field, dynamicAnswers)) continue;
         if (field.system_type === 'full_name' && field.required && fullName.trim().length < 3) {
           errors.full_name = 'Por favor, informe seu nome completo (mínimo 3 letras).';
           continue;
@@ -238,6 +236,16 @@ export const PublicFormPage: React.FC = () => {
     } catch (err: any) {
       console.error('Registration submit error:', err);
       setErrorMessage(err.message || 'Erro ao processar sua inscrição. Verifique os dados e tente novamente.');
+      if (err instanceof ApiError && err.code === 'registration_schedule_limit_reached') {
+        setConfig((current) => current ? {
+          ...current,
+          registration_schedule_capacities: current.registration_schedule_capacities.map((item) =>
+            item.class_id === classId
+              ? { ...item, remaining: 0, is_full: true }
+              : item
+          ),
+        } : current);
+      }
       setSubmitting(false);
     }
   };
@@ -277,6 +285,10 @@ export const PublicFormPage: React.FC = () => {
 
   const selectedSize = config.shirt_sizes.find((s) => s.id === shirtSizeId);
   const selectedClass = config.classes.find((c) => c.id === classId);
+  const selectedScheduleCapacity = config.registration_schedule_capacities.find(
+    (item) => item.class_id === classId
+  );
+  const selectedScheduleIsFull = selectedScheduleCapacity?.is_full === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-950 via-slate-900 to-slate-950 text-slate-900 font-sans pb-16">
@@ -323,10 +335,20 @@ export const PublicFormPage: React.FC = () => {
             </div>
           )}
 
+          {selectedScheduleIsFull && selectedClass && (
+            <div className="mb-6 p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-center">
+              <UsersRound className="w-8 h-8 mx-auto mb-2 text-amber-700" />
+              <p className="font-black uppercase tracking-wide">Horário lotado</p>
+              <p className="text-xs mt-1">
+                Este dia e horário da seletiva já atingiu {config.registration_schedule_limit} inscritos. Escolha outra opção.
+              </p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Dynamic Form Questions loaded from DB in sort_order */}
             {config.form_fields.map((field) => {
-              if (!isFieldVisible(field, dynamicAnswers)) return null;
+              if (!isFormFieldVisible(field, dynamicAnswers)) return null;
               if (field.system_type === 'full_name') {
                 return (
                   <DynamicFieldRenderer
@@ -349,6 +371,7 @@ export const PublicFormPage: React.FC = () => {
                       classes={config.classes}
                       birthYear={birthYearValue}
                       selectedGender={selectedGenderValue}
+                      scheduleCapacities={config.registration_schedule_capacities}
                       error={fieldErrors.class_id}
                     />
                     {selectedClass && <LocationPreview selectedClass={selectedClass} appearance={config.appearance} />}
@@ -430,9 +453,9 @@ export const PublicFormPage: React.FC = () => {
             <div className="space-y-3 pt-2">
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || selectedScheduleIsFull}
                 className={`w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-all cursor-pointer ${
-                  submitting
+                  submitting || selectedScheduleIsFull
                     ? 'bg-blue-400 text-white cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-900/30 active:scale-[0.99]'
                 }`}
@@ -442,6 +465,8 @@ export const PublicFormPage: React.FC = () => {
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span>Enviando cadastro...</span>
                   </>
+                ) : selectedScheduleIsFull ? (
+                  <span>Horário lotado</span>
                 ) : (
                   <>
                     <span>{config.appearance.payment_enabled ? `Pagar ${formattedPrice}` : config.appearance.submit_label}</span>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Ruler, Search, Check, ChevronDown, Sparkles } from 'lucide-react';
-import type { FormField, ClassItem, ShirtSize } from '../types';
+import type { FormField, ClassItem, RegistrationScheduleCapacity, ShirtSize } from '../types';
+import { extractSelectionGender, extractSubNumber, extractSubNumbers, formatSubCategory } from '../lib/selection-category';
 
 interface DynamicFieldRendererProps {
   field: FormField;
@@ -12,6 +13,7 @@ interface DynamicFieldRendererProps {
   error?: string;
   birthYear?: string;
   selectedGender?: string;
+  scheduleCapacities?: RegistrationScheduleCapacity[];
 }
 
 export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
@@ -24,6 +26,7 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
   error,
   birthYear,
   selectedGender,
+  scheduleCapacities = [],
 }) => {
   const [classSearch, setClassSearch] = useState('');
   const [sizeTab, setSizeTab] = useState<'adult' | 'child'>('adult');
@@ -57,18 +60,23 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
   // 2. System Field: CLASS SELECTOR
   if (field.system_type === 'class_id' || field.field_type === 'class_selector') {
     const parsedBirthYear = Number(birthYear);
-    const categoryByBirthYear: Record<number, string> = {
-      2009: 'SUB-19', 2010: 'SUB-19', 2011: 'SUB-17', 2012: 'SUB-17',
-      2013: 'SUB-15', 2014: 'SUB-15', 2015: 'SUB-13', 2016: 'SUB-13',
-      2017: 'SUB-11', 2018: 'SUB-11',
-    };
-    const eligibleClasses = Number.isInteger(parsedBirthYear)
+    const selectedSub = extractSubNumber(selectedGender);
+    const selectedGenderName = extractSelectionGender(selectedGender);
+    const eligibleClasses = selectedSub || Number.isInteger(parsedBirthYear)
       ? classes.filter((item) => {
-          const matchesYear = !item.eligible_birth_years?.length || item.eligible_birth_years.includes(parsedBirthYear);
-          const matchesGender = Boolean(selectedGender) && item.gender.toUpperCase().includes(selectedGender!.toUpperCase());
-          return matchesYear && matchesGender;
+          const classSubNumbers = extractSubNumbers(`${item.category} ${item.display_label}`);
+          const matchesCategory = selectedSub
+            ? classSubNumbers.includes(selectedSub)
+            : !item.eligible_birth_years?.length || item.eligible_birth_years.includes(parsedBirthYear);
+          const matchesGender = selectedGenderName
+            ? item.gender.toUpperCase().includes(selectedGenderName)
+            : Boolean(selectedGender);
+          return matchesCategory && matchesGender;
         })
       : [];
+    const availableClassCount = eligibleClasses.filter(
+      (item) => !scheduleCapacities.find((capacity) => capacity.class_id === item.id)?.is_full
+    ).length;
     const selectedClass = eligibleClasses.find((c) => c.id === value);
     const filteredClasses = eligibleClasses.filter((c) =>
       c.display_label.toLowerCase().includes(classSearch.toLowerCase())
@@ -118,6 +126,8 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
                   ? 'Informe o ano de nascimento e a categoria primeiro...'
                   : eligibleClasses.length === 0
                   ? 'Nenhum horário disponível para este ano de nascimento'
+                  : availableClassCount === 0
+                  ? 'Todos os horários compatíveis estão lotados'
                   : field.placeholder || 'Clique para selecionar o dia e horário...'}
               </span>
             )}
@@ -154,22 +164,29 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
                       <div className="space-y-1">
                         {unitClasses.map((item) => {
                           const isSelected = value === item.id;
+                          const capacity = scheduleCapacities.find((entry) => entry.class_id === item.id);
+                          const isFull = capacity?.is_full === true;
                           return (
                             <button
                               key={item.id}
                               type="button"
+                              disabled={isFull}
                               onClick={() => {
                                 onChange(item.id);
                                 setClassDropdownOpen(false);
                               }}
                               className={`w-full text-left px-3 py-2 rounded-lg text-xs sm:text-sm transition-all flex items-center justify-between cursor-pointer ${
-                                isSelected
+                                isFull
+                                  ? 'bg-red-50 text-red-700 cursor-not-allowed'
+                                  : isSelected
                                   ? 'bg-blue-600 text-white font-bold shadow-sm'
                                   : 'hover:bg-slate-100 text-slate-700'
                               }`}
                             >
                               <span>{item.display_label}</span>
-                              {isSelected && <Check className="w-4 h-4 shrink-0" />}
+                              {isFull
+                                ? <span className="text-[10px] font-black uppercase ml-2">Lotado</span>
+                                : isSelected && <Check className="w-4 h-4 shrink-0" />}
                             </button>
                           );
                         })}
@@ -183,7 +200,7 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
         </div>
         {birthYear && selectedGender && eligibleClasses.length > 0 && (
           <p className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-            {selectedGender} • Categoria {categoryByBirthYear[parsedBirthYear]} • {eligibleClasses.length} {eligibleClasses.length === 1 ? 'horário disponível' : 'horários disponíveis'}.
+            {selectedGender} • Categoria {formatSubCategory(selectedGender) || selectedClass?.category || 'definida pela seleção'} • {availableClassCount} {availableClassCount === 1 ? 'horário disponível' : 'horários disponíveis'}.
           </p>
         )}
         {error && <p className="text-xs font-semibold text-red-500">{error}</p>}

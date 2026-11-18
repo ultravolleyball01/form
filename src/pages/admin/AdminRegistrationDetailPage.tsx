@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import type { RegistrationWithDetails } from '../../types';
+import { formatSubCategory } from '../../lib/selection-category';
 import {
   ArrowLeft,
   Calendar,
@@ -69,6 +70,8 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
   const hasShirt = Boolean(data.shirt_size_code_snapshot);
   const hasPayment = data.amount > 0 || Boolean(data.payment);
   const canManagePayment = hasPayment && !isConfirmed && !isCancelled && data.payment?.status !== 'paid';
+  const categoryAnswer = data.answers?.find((answer) => answer.field_key_snapshot === 'selection_gender');
+  const selectionSub = formatSubCategory(categoryAnswer?.value) || formatSubCategory(data.class_label_snapshot);
 
   return (
     <div className="space-y-6">
@@ -116,6 +119,11 @@ export const AdminRegistrationDetailPage: React.FC<{ registrationId: string }> =
           {data.class_label_snapshot && <p className="text-xs font-semibold text-blue-700 mt-0.5">
             {data.class_label_snapshot}
           </p>}
+          {selectionSub && (
+            <span className="inline-flex mt-2 px-2.5 py-1 rounded-lg bg-violet-50 text-violet-800 text-xs font-black">
+              {selectionSub}
+            </span>
+          )}
         </div>
 
         {hasPayment && <div className="text-right sm:border-l sm:border-slate-100 sm:pl-6">

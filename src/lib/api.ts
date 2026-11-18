@@ -301,6 +301,27 @@ export const api = {
     return result;
   },
 
+  async updateRegistrationLimit(registration_schedule_limit: number) {
+    const res = await fetch('/api/admin/settings/registration-limit', {
+      method: 'PUT',
+      headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registration_schedule_limit }),
+    });
+    return readJsonResponse<{
+      success: boolean;
+      registration_schedule_limit: number;
+      registration_schedule_capacities: Array<{
+        class_id: string;
+        label: string;
+        category: string;
+        limit: number;
+        count: number;
+        remaining: number | null;
+        is_full: boolean;
+      }>;
+    }>(res, 'Erro ao atualizar o limite de inscritos');
+  },
+
   async updatePassword(current_password: string, new_password: string) {
     const res = await fetch('/api/admin/settings/password', {
       method: 'PUT',

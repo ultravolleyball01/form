@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import type { RegistrationScheduleCapacity } from '../../types';
 import {
   DollarSign,
   Lock,
@@ -8,6 +9,7 @@ import {
   AlertCircle,
   Save,
   Zap,
+  UsersRound,
 } from 'lucide-react';
 
 export const AdminSettingsPage: React.FC = () => {
@@ -17,6 +19,13 @@ export const AdminSettingsPage: React.FC = () => {
   const [savingPrice, setSavingPrice] = useState(false);
   const [priceSuccess, setPriceSuccess] = useState('');
   const [priceError, setPriceError] = useState('');
+
+  // Registration capacity
+  const [registrationScheduleLimitInput, setRegistrationScheduleLimitInput] = useState('35');
+  const [scheduleCapacities, setScheduleCapacities] = useState<RegistrationScheduleCapacity[]>([]);
+  const [savingRegistrationLimit, setSavingRegistrationLimit] = useState(false);
+  const [registrationLimitSuccess, setRegistrationLimitSuccess] = useState('');
+  const [registrationLimitError, setRegistrationLimitError] = useState('');
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -44,6 +53,8 @@ export const AdminSettingsPage: React.FC = () => {
       const res = await api.getAdminSettings();
       setCurrentPriceCents(res.shirt_price);
       setPriceInput((res.shirt_price / 100).toFixed(2).replace('.', ','));
+      setRegistrationScheduleLimitInput(String(res.registration_schedule_limit ?? 35));
+      setScheduleCapacities(res.registration_schedule_capacities || []);
       if (res.infinitepay_handle) {
         setInfinitePayHandle(res.infinitepay_handle);
       }
@@ -55,6 +66,34 @@ export const AdminSettingsPage: React.FC = () => {
       console.error('Error loading settings:', err);
     } finally {
       setLoadingPrice(false);
+    }
+  };
+
+  const handleUpdateRegistrationLimit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegistrationLimitSuccess('');
+    setRegistrationLimitError('');
+
+    const scheduleLimit = Number(registrationScheduleLimitInput);
+    if (!Number.isInteger(scheduleLimit) || scheduleLimit < 0 || scheduleLimit > 1_000_000) {
+      setRegistrationLimitError('Informe um número inteiro entre 0 e 1.000.000.');
+      return;
+    }
+
+    try {
+      setSavingRegistrationLimit(true);
+      const res = await api.updateRegistrationLimit(scheduleLimit);
+      setScheduleCapacities(res.registration_schedule_capacities);
+      setRegistrationLimitSuccess(
+        scheduleLimit > 0
+          ? `Limite atualizado para ${scheduleLimit} inscritos por dia e horário.`
+          : 'Limite por horário desativado.'
+      );
+      setTimeout(() => setRegistrationLimitSuccess(''), 4000);
+    } catch (err: any) {
+      setRegistrationLimitError(err.message || 'Erro ao atualizar o limite de inscritos.');
+    } finally {
+      setSavingRegistrationLimit(false);
     }
   };
 
@@ -292,6 +331,90 @@ export const AdminSettingsPage: React.FC = () => {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Registration capacity */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-5">
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+            <UsersRound className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-900">
+              Vagas por Dia e Horário
+            </h3>
+            <p className="text-xs text-slate-400">O mesmo limite é aplicado individualmente a cada horário</p>
+          </div>
+        </div>
+
+        {registrationLimitSuccess && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>{registrationLimitSuccess}</span>
+          </div>
+        )}
+        {registrationLimitError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{registrationLimitError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleUpdateRegistrationLimit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              Máximo de inscritos em cada horário
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="1000000"
+              step="1"
+              value={registrationScheduleLimitInput}
+              onChange={(e) => setRegistrationScheduleLimitInput(e.target.value)}
+              placeholder="35"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-600"
+              required
+            />
+            <p className="text-[11px] text-slate-500 mt-1.5">
+              O valor padrão é 35. Use 0 somente se quiser deixar os horários sem limite.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="grid grid-cols-[1fr_72px_72px] gap-3 px-3 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+              <span>Dia e horário da seletiva</span>
+              <span className="text-center">Inscritos</span>
+              <span className="text-center">Vagas</span>
+            </div>
+            <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+              {scheduleCapacities.map((capacity) => (
+                <div key={capacity.class_id} className="grid grid-cols-[1fr_72px_72px] gap-3 items-center px-3 py-2.5">
+                  <div>
+                    <span className="block text-xs font-extrabold text-slate-800">{capacity.label}</span>
+                    <span className="text-[10px] text-slate-500">{capacity.category}</span>
+                  </div>
+                  <span className="text-sm font-black text-center text-slate-700">{capacity.count}</span>
+                  <span className={`text-xs font-black text-center ${capacity.is_full ? 'text-red-700' : 'text-emerald-700'}`}>
+                    {capacity.limit === 0 ? '∞' : capacity.is_full ? 'Lotado' : capacity.remaining}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="px-3 py-2 bg-slate-50 text-[10px] text-slate-500">
+              Inscrições canceladas ou expiradas não ocupam vaga.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={savingRegistrationLimit || loadingPrice}
+            className="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow transition-all cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            <span>{savingRegistrationLimit ? 'Salvando...' : 'Salvar Vagas por Horário'}</span>
+          </button>
+        </form>
       </div>
 
       {/* Integration InfinitePay Configuration Card */}

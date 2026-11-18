@@ -12,10 +12,12 @@ import {
   requireAdminAuth,
   type AuthenticatedRequest,
 } from './auth';
-import type { FormField, ClassItem, ShirtSize, RegistrationStatus } from '../src/types';
+import type { RegistrationStatus } from '../src/types';
 import { loginLimiter, paymentLimiter, registrationLimiter, requireSameOrigin } from './security';
 import { z } from 'zod';
 import { getAppUrl } from './config';
+import { isFormFieldVisible } from '../src/lib/form-conditions';
+import { extractSelectionGender, extractSubNumber, extractSubNumbers, formatSubCategory } from '../src/lib/selection-category';
 
 export const apiRouter = Router();
 apiRouter.use('/admin', requireSameOrigin);
@@ -66,20 +68,27 @@ function safePublicHttpsUrl(value: string | undefined): string | undefined {
   }
 }
 
-function isFieldVisible(field: FormField, answers: Record<string, unknown>): boolean {
-  if (!field.show_when) return true;
-  const sourceValue = answers[field.show_when.field_id];
-  if (sourceValue === undefined || sourceValue === null || sourceValue === '') return false;
+function getRegistrationScheduleCapacities() {
+  const limit = db.getRegistrationScheduleLimit();
+  return db.getClasses(true).map((classItem) => {
+    const count = db.getRegistrationCountByClass(classItem.id);
+    return {
+      class_id: classItem.id,
+      label: classItem.display_label,
+      category: formatSubCategory(classItem.display_label) || formatSubCategory(classItem.category) || classItem.category,
+      limit,
+      count,
+      remaining: limit > 0 ? Math.max(limit - count, 0) : null,
+      is_full: limit > 0 && count >= limit,
+    };
+  });
+}
 
-  const expected = field.show_when.value;
-  if (field.show_when.operator === 'equals') return String(sourceValue) === expected;
-
-  const actualNumber = Number(sourceValue);
-  const expectedNumber = Number(expected);
-  if (!Number.isFinite(actualNumber) || !Number.isFinite(expectedNumber)) return false;
-  return field.show_when.operator === 'greater_than_or_equal'
-    ? actualNumber >= expectedNumber
-    : actualNumber <= expectedNumber;
+function getRegistrationSub(registrationId: string, classLabel: string): string | undefined {
+  const categoryAnswer = db.getRegistrationAnswers(registrationId).find(
+    (answer) => answer.field_key_snapshot === 'selection_gender'
+  );
+  return formatSubCategory(categoryAnswer?.value) || formatSubCategory(classLabel);
 }
 
 // ==========================================
@@ -104,6 +113,8 @@ apiRouter.get('/public-config', (req, res) => {
 
     res.json({
       shirt_price,
+      registration_schedule_limit: db.getRegistrationScheduleLimit(),
+      registration_schedule_capacities: getRegistrationScheduleCapacities(),
       appearance,
       form_fields,
       classes,
@@ -179,18 +190,42 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
       return;
     }
 
-    if (classItem?.eligible_birth_years?.length) {
-      const birthYearField = activeFields.find((field) => field.key === 'birth_year');
-      const birthYear = birthYearField ? Number(dynamic_answers[birthYearField.id]) : NaN;
-      if (!Number.isInteger(birthYear) || !classItem.eligible_birth_years.includes(birthYear)) {
-        res.status(400).json({ error: 'O dia e horário selecionado não é permitido para o ano de nascimento informado.' });
+    if (classItem) {
+      const scheduleLimit = db.getRegistrationScheduleLimit();
+      if (scheduleLimit > 0 && db.getRegistrationCountByClass(classItem.id) >= scheduleLimit) {
+        res.status(409).json({
+          error: 'Este dia e horário da seletiva já atingiu o limite de inscritos.',
+          code: 'registration_schedule_limit_reached',
+          class_id: classItem.id,
+        });
         return;
       }
     }
+
     if (classItem) {
-      const genderField = activeFields.find((field) => field.key === 'selection_gender');
-      const selectedGender = genderField ? String(dynamic_answers[genderField.id] || '').trim() : '';
-      if (!selectedGender || !classItem.gender.toUpperCase().includes(selectedGender.toUpperCase())) {
+      const categoryField = activeFields.find((field) => field.key === 'selection_gender');
+      const selectedCategory = categoryField
+        ? String(dynamic_answers[categoryField.id] || '').trim()
+        : '';
+      const selectedSub = extractSubNumber(selectedCategory);
+      const selectedGender = extractSelectionGender(selectedCategory);
+
+      if (selectedSub) {
+        const classSubNumbers = extractSubNumbers(`${classItem.category} ${classItem.display_label}`);
+        if (!classSubNumbers.includes(selectedSub)) {
+          res.status(400).json({ error: `O dia e horário selecionado não corresponde ao SUB ${selectedSub}.` });
+          return;
+        }
+      } else if (classItem.eligible_birth_years?.length) {
+        const birthYearField = activeFields.find((field) => field.key === 'birth_year');
+        const birthYear = birthYearField ? Number(dynamic_answers[birthYearField.id]) : NaN;
+        if (!Number.isInteger(birthYear) || !classItem.eligible_birth_years.includes(birthYear)) {
+          res.status(400).json({ error: 'O dia e horário selecionado não é permitido para o ano de nascimento informado.' });
+          return;
+        }
+      }
+
+      if (selectedGender && !classItem.gender.toUpperCase().includes(selectedGender)) {
         res.status(400).json({ error: 'O dia e horário selecionado não corresponde à categoria Masculino/Feminino informada.' });
         return;
       }
@@ -246,7 +281,7 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
     for (const field of activeFields) {
       if (field.system_type) continue; // Already handled above
 
-      if (!isFieldVisible(field, customAnswers)) continue;
+      if (!isFormFieldVisible(field, customAnswers)) continue;
 
       const rawVal = customAnswers[field.id];
       let valStr = Array.isArray(rawVal)
@@ -274,8 +309,13 @@ apiRouter.post('/registrations', registrationLimiter, (req, res) => {
           return;
         }
       }
-      if (field.key === 'selection_gender' && !['Masculino', 'Feminino'].includes(valStr)) {
-        res.status(400).json({ error: 'Selecione uma categoria.' });
+      if (
+        (field.field_type === 'select' || field.field_type === 'radio') &&
+        valStr &&
+        field.options?.length &&
+        !field.options.includes(valStr)
+      ) {
+        res.status(400).json({ error: `Selecione uma opção válida em "${field.label}".` });
         return;
       }
 
@@ -888,6 +928,7 @@ apiRouter.get('/admin/dashboard', requireAdminAuth, (req, res) => {
       payment_issues: failedRegs.length,
       recent_registrations: regs.slice(0, 10).map((r) => ({
         ...r,
+        selection_sub: getRegistrationSub(r.id, r.class_label_snapshot),
         payment: payments.find((p) => p.registration_id === r.id),
       })),
     });
@@ -924,7 +965,8 @@ apiRouter.get('/admin/registrations', requireAdminAuth, (req, res) => {
         (r) =>
           r.public_code.toLowerCase().includes(q) ||
           r.participant_name.toLowerCase().includes(q) ||
-          r.class_label_snapshot.toLowerCase().includes(q)
+          r.class_label_snapshot.toLowerCase().includes(q) ||
+          (getRegistrationSub(r.id, r.class_label_snapshot) || '').toLowerCase().includes(q)
       );
     }
 
@@ -966,6 +1008,7 @@ apiRouter.get('/admin/registrations', requireAdminAuth, (req, res) => {
       const payment = payments.find((p) => p.registration_id === r.id);
       return {
         ...r,
+        selection_sub: getRegistrationSub(r.id, r.class_label_snapshot),
         payment_status: payment?.status || 'none',
         transaction_nsu: payment?.transaction_nsu,
         capture_method: payment?.capture_method,
@@ -1567,12 +1610,36 @@ apiRouter.get('/admin/settings', requireAdminAuth, (req, res) => {
   const productionRuntime = process.env.NODE_ENV === 'production' || process.env.CONTEXT === 'production';
   res.json({
     shirt_price: db.getShirtPrice(),
+    registration_schedule_limit: db.getRegistrationScheduleLimit(),
+    registration_schedule_capacities: getRegistrationScheduleCapacities(),
     infinitepay_handle: productionRuntime
       ? infinitePayProvider.getHandle()
       : db.getSetting('infinitepay_handle', process.env.INFINITEPAY_HANDLE || ''),
     infinitepay_mode: productionRuntime ? 'production' : db.getSetting('infinitepay_mode', 'production'),
     infinitepay_managed_by_environment: productionRuntime,
   });
+});
+
+apiRouter.put('/admin/settings/registration-limit', requireAdminAuth, (req, res) => {
+  try {
+    const scheduleLimit = Number(req.body.registration_schedule_limit);
+    if (!Number.isInteger(scheduleLimit) || scheduleLimit < 0 || scheduleLimit > 1_000_000) {
+      res.status(400).json({
+        error: 'O limite por horário deve ser um número inteiro entre 0 e 1.000.000.',
+      });
+      return;
+    }
+
+    db.setSetting('registration_schedule_limit', String(scheduleLimit));
+    res.json({
+      success: true,
+      registration_schedule_limit: scheduleLimit,
+      registration_schedule_capacities: getRegistrationScheduleCapacities(),
+    });
+  } catch (err: any) {
+    console.error('Error setting registration limit:', err);
+    res.status(500).json({ error: 'Erro ao atualizar o limite de inscritos' });
+  }
 });
 
 apiRouter.put('/admin/settings/infinitepay', requireAdminAuth, (req, res) => {

@@ -603,6 +603,24 @@ class Database {
     return Number.isFinite(parsed) ? parsed : 7000;
   }
 
+  public getRegistrationScheduleLimit(): number {
+    const parsed = parseInt(this.getSetting('registration_schedule_limit', '35'), 10);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : 35;
+  }
+
+  public getRegistrationCountByClass(classId: string): number {
+    return this.data.registrations.filter(
+      (registration) => {
+        if (
+          registration.archived_at ||
+          registration.status === 'cancelled' ||
+          registration.status === 'expired'
+        ) return false;
+        return registration.class_id === classId;
+      }
+    ).length;
+  }
+
   public getFormAppearance(): FormAppearance {
     return {
       eyebrow: this.getSetting('form_eyebrow', FORM_SETTING_DEFAULTS.form_eyebrow),

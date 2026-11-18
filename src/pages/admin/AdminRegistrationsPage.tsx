@@ -346,6 +346,7 @@ export const AdminRegistrationsPage: React.FC = () => {
               <tr>
                 <th className="py-3 px-4">Código</th>
                 <th className="py-3 px-4">Nome do Inscrito</th>
+                <th className="py-3 px-4">SUB</th>
                 <th className="py-3 px-4">Local / Horário</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Data</th>
@@ -355,14 +356,14 @@ export const AdminRegistrationsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
                     Carregando inscrições...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     Nenhuma inscrição encontrada para os filtros selecionados.
                   </td>
                 </tr>
@@ -374,6 +375,11 @@ export const AdminRegistrationsPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
                       {r.participant_name}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <span className="px-2 py-1 rounded-lg bg-violet-50 text-violet-800 font-black">
+                        {r.selection_sub || '—'}
+                      </span>
                     </td>
                     <td className="py-3 px-4 text-slate-600 max-w-[220px] truncate" title={r.class_label_snapshot}>
                       {r.class_label_snapshot || 'Não informado'}

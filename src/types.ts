@@ -62,7 +62,12 @@ export type FormFieldType =
   | 'class_selector'
   | 'shirt_size_selector';
 
-export type FormConditionOperator = 'equals' | 'greater_than_or_equal' | 'less_than_or_equal';
+export type FormConditionOperator =
+  | 'equals'
+  | 'greater_than'
+  | 'greater_than_or_equal'
+  | 'less_than'
+  | 'less_than_or_equal';
 
 export interface FormFieldCondition {
   field_id: string;
@@ -172,8 +177,20 @@ export interface RegistrationWithDetails extends Registration {
   payment?: Payment;
 }
 
+export interface RegistrationScheduleCapacity {
+  class_id: string;
+  label: string;
+  category: string;
+  limit: number;
+  count: number;
+  remaining: number | null;
+  is_full: boolean;
+}
+
 export interface PublicFormConfig {
   shirt_price: number;
+  registration_schedule_limit: number;
+  registration_schedule_capacities: RegistrationScheduleCapacity[];
   appearance: FormAppearance;
   form_fields: FormField[];
   classes: ClassItem[];
